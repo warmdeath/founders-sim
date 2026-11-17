@@ -62,9 +62,7 @@ def setup(s: Session) -> None:
       "TAM = everyone who could ever buy. SAM = those your product can serve. SOM = what you can realistically win soon.\n"
       "Investors WILL ask you for these numbers.\n")
     for lead in g.leads.values():
-        w(s, f"customers/leads/{lead.key}.txt",
-          f"Name: {lead.name}\nWho:  {lead.role}\nStatus: not interviewed yet\n\n"
-          f"To talk to them:  interview customers/leads/{lead.key}.txt   (3 hours)\n")
+        write_lead(s, lead)
     for person in g.hires.values():
         equity = f"{person.equity * 100:.1f}% equity" if person.equity else "no equity"
         w(s, f"team/candidates/{person.key}.txt",
@@ -85,6 +83,12 @@ def setup(s: Session) -> None:
 
 
 # ------------------------------------------------------------- single files
+def write_lead(s: Session, lead) -> None:
+    w(s, f"customers/leads/{lead.key}.txt",
+      f"Name: {lead.name}\nWho:  {lead.role}\nStatus: not interviewed yet\n\n"
+      f"To talk to them:  interview customers/leads/{lead.key}.txt   (3 hours)\n")
+
+
 def write_email(s: Session, email) -> None:
     body = (f"From:    {email.sender}\nSubject: {email.subject}\nDate:    week {email.week}\n\n{email.body}")
     w(s, f"inbox/{email.id:03d}_{slug(email.subject)}.txt", body)
@@ -232,7 +236,8 @@ def sync(s: Session) -> None:
         elif f.progress > 0:
             status = f"{f.progress * 100:.0f}% built"
         else:
-            status = "idea" + (" - asked for by customers" if f.revealed else "")
+            who = "your new segment" if f.kind == "expansion" else "customers"
+            status = "idea" + (f" - asked for by {who}" if f.revealed else "")
         rows.append(f"{f.key:<20}{f.title:<36}{f.complexity:>5}  {status}")
     rows += ["", "Start one with:  spec new <key>"]
     w(s, "product/roadmap.md", "\n".join(rows) + "\n", RO)

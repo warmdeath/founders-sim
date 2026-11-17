@@ -465,3 +465,33 @@ def test_remaining_commands_smoke():
     assert ts.participating is False and ts.liq_pref == 1.0
     run(s, f"ts decline {ts.id}")
     assert ts.status == "declined"
+
+
+def test_expansion_segment_opens_mid_game():
+    s = make_session("ledgerly", seed=2)
+    g = s.game
+    g.idea = 0
+    for key in ("reminders", "bank_sync", "accounting_export", "multi_user"):
+        ship(s, key)
+    assert "acc_rita" not in g.leads and not g.features["multi_client"].known
+    g.customers = 60
+    out = run(s, "next", "ls customers/leads", "interview acc_rita", "cat product/roadmap.md")
+    assert g.flag("expansion_open") and "acc_rita.txt" in out and "new customer segment" in out
+    assert g.features["multi_client"].revealed and "asked for by your new segment" in out
+    before_wtp, before_fit = engine.wtp_now(g), engine.fit(g)
+    ship(s, "multi_client")
+    assert engine.wtp_now(g) > before_wtp and engine.fit(g) == before_fit
+
+
+def test_acquihire_is_a_soft_landing_not_a_win():
+    s = make_session(answers=[0])
+    g = s.game
+    g.idea = 0
+    for f in list(g.features.values())[:5]:
+        ship(s, f.key)
+    g.reputation, g.week, g.customers = 60, 30, 20
+    run(s, "mna explore")
+    offer = g.offers[0]
+    assert offer.kind == "acquihire" and offer.price < 500_000
+    run(s, "mna accept", "next", "next", "next")
+    assert g.ended == "acquihired" and "acquired" not in g.won_paths

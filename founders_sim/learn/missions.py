@@ -76,8 +76,9 @@ MISSIONS = [
             "notebook   →   glossary", lambda s: _used(s, "notebook") and _used(s, "glossary")),
     Mission("Tidy your inbox", "Move a read email into the archive. Moving and renaming are the same command.",
             "mv inbox/001_welcome_read_me_first.txt inbox/archive/", lambda s: _used(s, "mv")),
-    Mission("Find customers", "A product nobody hears about earns nothing. Pick a channel.",
-            "launch     or     ads 200     or     content",
+    Mission("Find customers", "A product nobody hears about earns nothing. `growth` shows where customers come from "
+            "and why they leave. Start small; save the big `launch` for when several asked-for features are live.",
+            "growth   →   content     or     ads 100",
             lambda s: s.game.flag("launches") >= 1 or s.game.ad_budget > 0 or s.game.audience > 0),
     Mission("Build your deck", "A pitch deck is assembled from evidence you really have.",
             "deck   →   cat investors/deck.md", lambda s: s.game.flag("deck") > 0),
@@ -147,10 +148,10 @@ def strategy_tips(s) -> list[str]:
     if m["runway"] < 6:
         tips.append(f"Runway is {engine.fmt_runway(m)}. Cut burn (`ads 0`), raise the price, pitch investors, or look at `loan`.")
     if engine.live(g) and m["churn"] > 0.12:
-        tips.append(f"Churn is {m['churn'] * 100:.0f}% a month. Ship what customers asked for (roadmap: 'asked for by customers') "
+        tips.append(f"Churn is {m['churn'] * 100:.0f}% a month. `growth` lists why they leave; ship what customers asked for "
                     "before spending on growth.")
     if engine.live(g) and g.ad_budget == 0 and g.audience < 30 and g.flag("launches") == 0:
-        tips.append("Your product is live but nobody knows. Try `launch`, `content` or `ads <weekly budget>`.")
+        tips.append("Your product is live but nobody knows. `growth` shows the funnel; try `content` or a small `ads <weekly budget>`.")
     if g.debt > 35:
         tips.append(f"Technical debt is {g.debt:.0f}/100: `refactor`, and consider `upgrade tests`.")
     if g.prod_bugs >= 3:
@@ -339,5 +340,6 @@ def challenge_list(s) -> Text:
         ch = BY_ID[cid]
         out.append(f"{'✔' if state == 'done' else '○'} {cid}  {ch.title}\n", style="green" if state == "done" else "bold")
         if state != "done":
-            out.append(f"     {ch.text}\n     answer {cid} <your answer>\n", style="")
+            how = f"answer {cid}" if "Then: answer" in ch.text else f"answer {cid} <your answer>"
+            out.append(f"     {ch.text}\n     {how}\n", style="")
     return out

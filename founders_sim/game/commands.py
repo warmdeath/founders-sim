@@ -187,6 +187,9 @@ def cmd_next(ctx: Ctx):
     s.say("")
     for line in lines:
         s.say(line)
+    waiting = [r.id for r in g.runs if not r.merged and not r.discarded]
+    if waiting and not g.ended:
+        s.note(f"Still waiting for you: agent run(s) {', '.join(waiting)} - unmerged work earns nothing (`review`, `merge`).")
     m = engine.metrics(g)
     s.say(f"[title]── Week {g.week} ──[/title] {g.hours:g}h available · cash {money(g.cash)} · "
           f"runway {engine.fmt_runway(m)} · energy {g.energy:.0f}")
@@ -288,6 +291,14 @@ def cmd_launch(ctx: Ctx):
     return 0 if customers.launch(S(ctx)) else 1
 
 
+def cmd_growth(ctx: Ctx):
+    s = S(ctx)
+    for line in customers.growth_report(s.game):
+        ctx.line(line)
+    if not ctx.piped and engine.live(s.game):
+        learn_some(s, ["funnel", "conversion", "channel", "churn"], 2)
+
+
 def cmd_outbound(ctx: Ctx):
     return 0 if customers.outbound(S(ctx)) else 1
 
@@ -343,10 +354,13 @@ def cmd_spec(ctx: Ctx):
             return 0
         ctx.fs.write(path, agents.spec_template(feature))
         s.good(f"Created product/specs/{key}.md - a template with five sections.")
-        s.note("Replace each TODO line with real content: `nano product/specs/" + key + ".md`, or append lines with\n"
-               "  echo '- imports a 20-page PDF in under 10 seconds' >> product/specs/" + key + ".md\n"
-               "(appended lines land in the LAST section, so nano is easier). Then: spec check product/specs/" + key + ".md\n"
-               "Later specs go faster: `spec new <key> --from product/specs/" + key + ".md` reuses this one's structure.")
+        if g.bump("specs_created") == 1:
+            s.note("Replace each TODO line with real content: `nano product/specs/" + key + ".md`, or append lines with\n"
+                   "  echo '- imports a 20-page PDF in under 10 seconds' >> product/specs/" + key + ".md\n"
+                   "(appended lines land in the LAST section, so nano is easier). Then: spec check product/specs/" + key + ".md")
+        else:
+            s.note(f"Fill it in (`nano product/specs/{key}.md`), then `spec check product/specs/{key}.md`. "
+                   "Tip: `spec new <key> --from <an earlier spec>` reuses a structure you already wrote.")
         s.learn("spec", "prompt")
         return 0
     if args[:1] == ["check"] and len(args) == 2:
@@ -378,6 +392,22 @@ def cmd_spec(ctx: Ctx):
 def find_run(ctx: Ctx, arg: str):
     key = key_of(arg)
     return next((r for r in S(ctx).game.runs if r.id == key), None)
+
+
+def default_run(ctx: Ctx, args: list[str]) -> list[str]:
+    """`review` / `merge` with no run named: use the one that is waiting.
+    With several waiting, list them so the player can choose."""
+    if args:
+        return args
+    waiting = [r for r in S(ctx).game.runs if not r.merged and not r.discarded]
+    if len(waiting) == 1:
+        return [waiting[0].id]
+    if waiting:
+        ctx.err(f"{ctx.name}: several runs are waiting: " + ", ".join(
+            f"{r.id} ({r.feature}, review: {r.review})" for r in waiting) + f". Name one: {ctx.name} <run>")
+    else:
+        ctx.err(f"{ctx.name}: no agent run is waiting. Start one: agent run product/specs/<feature>.md")
+    return []
 
 
 def cmd_agent(ctx: Ctx):
@@ -456,9 +486,9 @@ def cmd_agent(ctx: Ctx):
 
 def cmd_review(ctx: Ctx):
     s = S(ctx)
-    args = [a for a in ctx.args if a != "--deep"]
+    args = default_run(ctx, [a for a in ctx.args if a != "--deep"])
     if not args:
-        return usage(ctx, "review <run> [--deep]")
+        return 1
     run = find_run(ctx, args[0])
     if run is None:
         return ctx.fail(f"{args[0]}: no such run (see `agent status`)")
@@ -480,11 +510,12 @@ def cmd_review(ctx: Ctx):
 
 def cmd_merge(ctx: Ctx):
     s = S(ctx)
-    if not ctx.args:
-        return usage(ctx, "merge <run>")
-    run = find_run(ctx, ctx.args[0])
+    args = default_run(ctx, list(ctx.args))
+    if not args:
+        return 1
+    run = find_run(ctx, args[0])
     if run is None:
-        return ctx.fail(f"{ctx.args[0]}: no such run (see `agent status`)")
+        return ctx.fail(f"{args[0]}: no such run (see `agent status`)")
     if run.merged or run.discarded:
         return ctx.fail(f"{run.id} is already {'merged' if run.merged else 'discarded'}")
     if run.review == "none" and s.game.guided and not s.game.flag("warned_merge"):
@@ -635,7 +666,11 @@ def cmd_mna(ctx: Ctx):
             s.say(f"You had coffee with {sc.bigcorp}'s corporate development team. {why}")
             return 0
         offer = funding.make_offer(s)
+        why = "your revenue and customers" if offer.kind == "acquisition" else "you and your ability to ship with agents"
         s.good(f"{sc.bigcorp} is interested in {why} and sent a letter of intent: {money(offer.price)} ({offer.kind}).")
+        if offer.kind == "acquihire":
+            s.note("An acquihire buys the team and usually shuts the product down. It is a soft landing, not a win. "
+                   "More revenue turns it into a real acquisition offer.")
         return 0
     if offer is None:
         s.say(f"No acquisition offer on the table. `mna explore` (6h) sounds out {sc.bigcorp}.")
@@ -761,7 +796,7 @@ def cmd_help(ctx: Ctx):
         return sh.commands["man"].fn(ctx)
     groups = [
         ("Overview", ["status", "metrics", "dash", "next", "rest", "crunch", "inbox", "reply"]),
-        ("Customers", ["idea", "interview", "price", "ads", "content", "launch", "outbound", "sales"]),
+        ("Customers", ["idea", "interview", "growth", "price", "ads", "content", "launch", "outbound", "sales"]),
         ("Product & agents", ["spec", "agent", "review", "merge", "fix", "refactor", "upgrade"]),
         ("Money & people", ["deck", "network", "pitch", "ts", "captable", "waterfall", "loan", "mna", "hire", "fire"]),
         ("Learning", ["tutor", "notebook", "glossary", "quiz", "challenges", "answer", "man", "help"]),
@@ -802,6 +837,9 @@ GAME_MAN = {
               "Without argument prints the price. Price too far above willingness to pay kills signups and raises churn."),
     "ads": ("ads - weekly paid advertising budget", "ads [weekly budget]",
             "Buys customers at your current CAC. `ads 0` stops. Compare CAC with LTV in `metrics` before scaling."),
+    "growth": ("growth - where customers come from and why they leave", "growth   (alias: funnel)",
+               "Shows expected weekly signups by source (organic, word of mouth, paid), how your price compares with what "
+               "customers think the product is worth, the reasons behind your churn, and the biggest lever right now. Free."),
     "content": ("content - content marketing", "content",
                 "5 hours. Builds an audience that keeps sending signups for weeks. Costs hours, not cash."),
     "launch": ("launch - public launch", "launch",
@@ -819,11 +857,11 @@ GAME_MAN = {
               "`agent run` starts agents on a spec: costs compute dollars and hours, writes agents/runs/<run>/. "
               "More agents = more done per run, but conflicts unless the spec has at least as many separate tasks. "
               "Default model: $AGENT_MODEL."),
-    "review": ("review - check an agent run before merging", "review <run> [--deep]",
-               "Quick review: 2h, catches most failures visible in tests.log. Deep review: 5h, reads the code, "
+    "review": ("review - check an agent run before merging", "review [<run>] [--deep]",
+               "Without a run name, reviews the run that is waiting. Quick review: 2h, catches most failures visible in tests.log. Deep review: 5h, reads the code, "
                "catches most hidden bugs and hallucinations. Found problems are fixed."),
-    "merge": ("merge - ship an agent run to customers", "merge <run>",
-              "Adds the run's work to the product. Undiscovered bugs go live with it and become incidents and churn."),
+    "merge": ("merge - ship an agent run to customers", "merge [<run>]",
+              "Without a run name, merges the run that is waiting. Adds the run's work to the product. Undiscovered bugs go live with it and become incidents and churn."),
     "fix": ("fix - bug-fixing sweep", "fix", "4 hours + $60 compute. Removes most known production bugs."),
     "refactor": ("refactor - pay down technical debt", "refactor", "6 hours + $140 compute. Risky without tests."),
     "upgrade": ("upgrade - improve your agent workflow", "upgrade [name]",
@@ -897,7 +935,7 @@ def register_game_commands(sh: Shell, s: Session) -> None:
         ("status", cmd_status, ("st",)), ("metrics", cmd_metrics, ("m",)), ("next", cmd_next, ("week",)),
         ("rest", cmd_rest, ()), ("crunch", cmd_crunch, ()), ("idea", cmd_idea, ("ideas",)),
         ("interview", cmd_interview, ()), ("price", cmd_price, ()), ("ads", cmd_ads, ()),
-        ("content", cmd_content, ()), ("launch", cmd_launch, ()), ("outbound", cmd_outbound, ()),
+        ("content", cmd_content, ()), ("growth", cmd_growth, ("funnel",)), ("launch", cmd_launch, ()), ("outbound", cmd_outbound, ()),
         ("sales", cmd_sales, ()), ("spec", cmd_spec, ()), ("agent", cmd_agent, ("agents",)),
         ("review", cmd_review, ()), ("merge", cmd_merge, ()), ("fix", cmd_fix, ()),
         ("refactor", cmd_refactor, ()), ("upgrade", cmd_upgrade, ()), ("deck", cmd_deck, ()),

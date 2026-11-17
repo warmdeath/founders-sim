@@ -291,6 +291,9 @@ def mentor_mail(s: Session) -> list[str]:
             g.bump("ev_inbound_lead")
             out.append(line)
 
+    if not g.flag("expansion_open") and engine.fit(g) >= 55 and m["mrr"] >= 0.25 * scenario_of(g).profit_mrr * engine.win_factor(g):
+        out += open_new_segment(s)
+
     interviews = sum(l.interviewed for l in g.leads.values())
     nudge("m_interviews", g.week >= 3 and interviews == 0, "Have you talked to anyone yet?",
           "You've been at it for weeks and haven't interviewed a single customer.\n"
@@ -330,6 +333,29 @@ def mentor_mail(s: Session) -> list[str]:
           f"LTV:CAC is {m['ltv_cac']:.1f}. Each customer costs {money(m['cac'])} and returns {money(m['ltv'])}.\n"
           "Lower the ad budget, raise the price, or fix churn first.", 3, ("ltv_cac", "unit_economics"))
     return out
+
+
+def open_new_segment(s: Session) -> list[str]:
+    """Mid-game: a second kind of customer shows up. New people to
+    interview, new hidden needs, a bigger market."""
+    from . import files
+    from .scenarios import EXPANSION, open_expansion
+    g = s.game
+    g.flags["expansion_open"] = g.week
+    segment = EXPANSION[g.scenario]["segment"]
+    leads = open_expansion(g)
+    for lead in leads:
+        files.write_lead(s, lead)
+    s.mail("Nora (your mentor)", "A new kind of customer is knocking",
+           f"Your first customers are staying. Now people you never targeted are writing in: {segment}.\n\n"
+           "This is how companies grow after the first product works: an adjacent segment with the same core problem\n"
+           "but its own needs. Serving them widens your market (your SAM) and raises what the product is worth.\n\n"
+           "You don't know yet what they need. You know how to find out:\n"
+           + "".join(f"  interview customers/leads/{lead.key}.txt\n" for lead in leads)
+           + "\nA warning from experience: don't chase a second segment before the first one is happy.\n\n- Nora\n")
+    s.learn("segment", "sam")
+    return [f"[cmd]✉[/cmd]  [good]A new customer segment is asking about {g.company}:[/good] {segment}. "
+            f"{len(leads)} new people to interview (`ls customers/leads`)."]
 
 
 FOCUS_BRIEFS = {

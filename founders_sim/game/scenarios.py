@@ -247,6 +247,62 @@ _add(Scenario(
 ))
 
 
+# ------------------------------------------------- expansion segments
+# Mid-game: once the first customers are happy, a NEW kind of customer
+# shows up. Interviewing them reveals "expansion" features that raise what
+# the product is worth and how many people it reaches.
+#   features: (key, title, complexity, quote)     leads: (key, name, role, reveals, wtp, mentions pricing)
+EXPANSION = {
+    "focusly": dict(
+        segment="high-school students preparing for final exams, and their parents",
+        features=[("parent_plan", "Family plan with progress reports", 18,
+                   "I'd pay for my daughter's account if I could see that she is actually studying"),
+                  ("exam_packs", "Ready-made final-exam packs", 20,
+                   "for the final exam everyone studies the same syllabus - give me the deck ready-made")],
+        leads=[("hs_paolo", "Paolo Gatti", "father of a final-year high-school student", ["parent_plan"], 14, True),
+               ("hs_irene", "Irene Lolli", "final-year high-school student", ["exam_packs"], 6, False),
+               ("hs_dona", "Prof. Dona", "high-school teacher", ["exam_packs", "parent_plan"], 12, True)]),
+    "ledgerly": dict(
+        segment="accountants who manage invoicing for many client companies",
+        features=[("multi_client", "Multi-client dashboard", 22,
+                   "I manage forty clients - I need all their overdue invoices on one screen"),
+                  ("white_label", "White-label reminders", 16,
+                   "the reminder has to come in MY firm's name, not yours")],
+        leads=[("acc_rita", "Rita Monti", "accountant, 40 client companies", ["multi_client"], 300, True),
+               ("acc_leo", "Leo Farina", "bookkeeping firm partner", ["white_label", "multi_client"], 260, True),
+               ("acc_ugo", "Ugo Bellini", "payroll consultant", ["white_label"], 120, False)]),
+    "parsefy": dict(
+        segment="operations teams with no developers",
+        features=[("email_inbox", "Forward-by-email inbox", 20,
+                   "my team can't call an API - they can forward an email with the PDF attached"),
+                  ("sheet_export", "One-click spreadsheet export", 14,
+                   "I don't want JSON, I want the numbers in a spreadsheet")],
+        leads=[("ops_tina", "Tina Ricci", "office manager at a shipping company", ["email_inbox"], 160, True),
+               ("ops_aldo", "Aldo Serra", "accounts-payable clerk", ["sheet_export", "email_inbox"], 140, True),
+               ("ops_gaia", "Gaia Poli", "operations analyst", ["sheet_export"], 90, False)]),
+    "tutorly": dict(
+        segment="adults who need tutoring for work",
+        features=[("adult_courses", "Lessons for adult learners", 18,
+                   "I'm forty and need English for work - every tutor here is for children"),
+                  ("company_billing", "Invoices for employers", 16,
+                   "my company pays for training, but only if I get a proper invoice")],
+        leads=[("adult_sara", "Sara Colombo", "sales manager learning English", ["adult_courses"], 22, True),
+               ("adult_ivan", "Ivan Russo", "engineer preparing a certification", ["adult_courses", "company_billing"], 24, True),
+               ("hr_lucia", "Lucia Mele", "HR manager at a mid-size company", ["company_billing"], 20, False)]),
+}
+
+
+def open_expansion(game: Game) -> list[Lead]:
+    """Add the expansion segment's leads to the game (features stay
+    hidden until an interview reveals them)."""
+    data = EXPANSION[game.scenario]
+    leads = []
+    for key, name, role, reveals, wtp, _pricing in data["leads"]:
+        game.leads[key] = Lead(key, name, role, list(reveals), max(game.idea, 0), wtp)
+        leads.append(game.leads[key])
+    return leads
+
+
 # ---------------------------------------------------------------- investors
 # (key, name, kind, firm, check_min, check_max, min_mrr, cares, tough)
 INVESTORS = [
@@ -316,6 +372,8 @@ def new_game(scenario_id: str, run_number: int = 1, seed: int = 0, focus: list[s
         game.features[key] = Feature(key, title, cx * 2, weight, known, kind, quote)
     for key, name, role, reveals, likes, wtp, _pricing in sc.leads:
         game.leads[key] = Lead(key, name, role, list(reveals), likes, wtp)
+    for key, title, cx, quote in EXPANSION[sc.id]["features"]:
+        game.features[key] = Feature(key, title, cx * 2, 0.0, False, "expansion", quote)
     for key, name, kind, firm, lo, hi, min_mrr, cares, tough in INVESTORS:
         firm_name = f"{sc.bigcorp} Ventures" if kind == "corporate" else name
         game.investors[key] = Investor(key, firm_name if kind == "corporate" else name, kind, firm, lo, hi,
@@ -331,4 +389,5 @@ def new_game(scenario_id: str, run_number: int = 1, seed: int = 0, focus: list[s
 
 def pricing_mentions(scenario_id: str) -> set[str]:
     """Lead keys whose interview notes talk about pricing (for a grep challenge)."""
-    return {lead[0] for lead in SCENARIOS[scenario_id].leads if lead[6]}
+    return ({lead[0] for lead in SCENARIOS[scenario_id].leads if lead[6]}
+            | {lead[0] for lead in EXPANSION[scenario_id]["leads"] if lead[5]})

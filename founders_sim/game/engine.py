@@ -68,7 +68,12 @@ def revenue_per_customer(g: Game) -> float:
 
 def wtp_now(g: Game) -> float:
     """What customers will pay rises as the product fits them better."""
-    return scenario_of(g).wtp * (0.55 + 0.6 * fit(g) / 100)
+    return scenario_of(g).wtp * (0.55 + 0.6 * fit(g) / 100) * (1 + 0.12 * expansion(g))
+
+
+def expansion(g: Game) -> float:
+    """0..2: how well the product serves its second customer segment."""
+    return sum(f.quality for f in g.features.values() if f.kind == "expansion")
 
 
 def price_conversion(g: Game) -> float:
@@ -270,6 +275,7 @@ def expected_signups(g: Game) -> dict[str, float]:
     organic = (sc.organic * (0.4 + g.reputation / 50) * (0.3 + f / 70)
                + g.audience * 0.008 * (sc.organic / 4) * (0.3 + f / 100))
     organic *= 1 - 0.06 * (g.level - 1)          # later runs: a more crowded market
+    organic *= 1 + 0.35 * expansion(g)           # a second customer segment widens your reach
     organic *= 1 - 0.5 * g.competitor * (1 - moat(g))
     viral = g.customers * sc.viral * (f / 100) ** 1.5 * (1 + 1.5 * feature_quality(g, "growth"))
     paid = g.ad_budget / paid_cac(g) if g.ad_budget > 0 else 0.0
@@ -330,7 +336,7 @@ def advance_week(s: Session) -> list[str]:
         g.bump("covenant_breaches")
 
     # 4. production incidents
-    if live(g) and g.customers >= 1 and g.prod_bugs > 0.5 and g.rng.random() < min(0.6, 0.07 * g.prod_bugs):
+    if live(g) and g.customers >= 10 and g.prod_bugs > 0.5 and g.rng.random() < min(0.6, 0.07 * g.prod_bugs):
         lost = g.customers * g.rng.uniform(0.03, 0.08)
         g.customers -= lost
         g.reputation = max(0, g.reputation - 3)
@@ -352,7 +358,7 @@ def advance_week(s: Session) -> list[str]:
     # 6. founder energy
     used = 1 - g.hours / max(g.hours_max, 1)
     runway = metrics(g)["runway"]
-    delta = 5 - 10 * used - (3 if runway < 3 else 0)
+    delta = 4 - 11 * used - (3 if runway < 3 else 0)
     g.energy = clamp(g.energy + delta, 0, 100)
 
     # 7. team: salesperson works one deal; deals go cold

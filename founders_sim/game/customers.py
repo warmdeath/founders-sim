@@ -46,6 +46,9 @@ def interview(s: Session, key: str) -> bool:
     s.learn("customer_interview")
     if discovered:
         s.learn("hidden_need")
+    if any(f.kind == "expansion" for f in discovered):
+        s.note("  This is a need of your NEW segment. Building it does not change fit for your first customers; "
+               "it widens your market and raises what the product is worth.")
     n = interviews_done(g)
     if n == 2:
         s.learn("wtp")
@@ -138,7 +141,8 @@ def set_ads(s: Session, budget: float) -> None:
             s.learn("ltv", "ltv_cac")
         if m["churn"] > 0.12:
             s.learn("premature_scaling")
-            g.bump("premature_scaling")
+            if budget >= 300:
+                g.bump("premature_scaling")
 
 
 def content(s: Session) -> bool:
@@ -163,9 +167,15 @@ def launch(s: Session) -> bool:
     if g.week - g.flag("launch_week", -99) < 10:
         s.bad("You launched recently. The audience needs something new - wait a few more weeks.")
         return False
+    f = engine.fit(g)
+    if f < 45 and s.io.choose(
+            f"Your product covers little of what customers asked for yet (fit {f:.0f}/100). A launch only amplifies "
+            "what is already there, and you can't launch again for 10 weeks. Launch now?",
+            ["Launch anyway", "Wait until more asked-for features are live"]) == 1:
+        s.say("You hold the launch. (`content` and a small `ads` budget are gentler ways to get first users.)")
+        return False
     if not s.spend_hours(8, "a launch"):
         return False
-    f = engine.fit(g)
     # a launch is worth several weeks of normal organic signups, more if people already know you
     weekly = engine.expected_signups(g)["organic"]
     wave = max(2.0, weekly * (3 + g.reputation / 15 + g.audience / 400)) * (0.6 if f < 45 else 1.0)
@@ -183,6 +193,66 @@ def launch(s: Session) -> bool:
               "A launch amplifies what the product already is.")
     s.learn("launch", "gtm")
     return True
+
+
+def growth_report(g) -> list[str]:
+    """`growth`: where customers come from and why they leave - the funnel
+    and the churn drivers, in plain words."""
+    sc = scenario_of(g)
+    lines: list[str] = []
+    if not engine.live(g):
+        return ["Nothing is live yet, so nobody can sign up. Ship your first feature (the MVP)."]
+    src = engine.expected_signups(g)
+    f = engine.fit(g)
+    lines.append("WHERE NEW CUSTOMERS COME FROM (expected per week at today's settings)")
+    lines.append(f"  organic (reputation {g.reputation:.0f}, content audience {g.audience:.0f})   {src['organic']:6.1f}")
+    lines.append(f"  word of mouth (existing customers telling others)   {src['word_of_mouth']:6.1f}")
+    paid = f"${g.ad_budget:,.0f}/week at about ${engine.paid_cac(g):,.0f} per customer" if g.ad_budget else "ads are off"
+    lines.append(f"  paid ads ({paid})   {src['paid']:6.1f}")
+    ratio = g.price / max(engine.wtp_now(g), 0.01)
+    if ratio > 1.25:
+        price = "far ABOVE what customers say it is worth to them - most visitors leave at the price page"
+    elif ratio > 1.0:
+        price = "a little above what customers say it is worth - some visitors leave at the price page"
+    elif ratio > 0.7:
+        price = "about what customers say it is worth"
+    else:
+        price = "well BELOW what customers say it is worth - you could charge more"
+    lines.append(f"  price ({g.price:g}, {sc.price_unit}): {price}")
+    lines.append(f"  market: {g.customers:.0f} of about {sc.som[0]:,} obtainable customers (SOM)")
+    churn = engine.monthly_churn(g)
+    lines += ["", f"WHY CUSTOMERS LEAVE (monthly churn {churn * 100:.1f}%)"]
+    reasons = [(sc.base_churn * (1 + 0.08 * (g.level - 1)) * (1.35 - f / 100),
+                f"the product does not cover what they need (fit {f:.0f}/100)"),
+               (0.012 * g.prod_bugs, f"bugs in production ({g.prod_bugs:.0f})"),
+               (0.10 * max(0.0, ratio - 1), "price above what it is worth to them"),
+               (0.03 * g.competitor * (1 - engine.moat(g)), f"competition ({sc.competitor})")]
+    for amount, text in sorted(reasons, reverse=True):
+        if amount >= 0.002:
+            lines.append(f"  {amount * 100:5.1f} points   {text}")
+    if engine.moat(g) >= 0.07:
+        lines.append(f"  {-3 * engine.moat(g):5.1f} points   your moat keeps people from leaving")
+    if churn <= sc.min_churn + 0.001:
+        lines.append(f"  (churn is at its floor for this kind of business: {sc.min_churn * 100:.1f}%)")
+    lever = max(reasons)[1]
+    unbuilt = [x.title for x in g.features.values() if x.revealed and not x.shipped]
+    lines += ["", "BIGGEST LEVER"]
+    if f < 60 and unbuilt:
+        lines.append(f"  Fit. Customers asked for things you have not shipped: {', '.join(unbuilt[:4])}.")
+    elif f < 60:
+        lines.append("  Fit. Interview more customers: there are needs you have not discovered yet.")
+    elif ratio > 1.0:
+        lines.append("  Price. Lower it, or raise what the product is worth by shipping what customers asked for.")
+    elif g.prod_bugs >= 3:
+        lines.append("  Quality. Bugs are driving people away: `fix`, and review before you merge.")
+    elif sum(src.values()) < 3:
+        lines.append("  Reach. The product keeps customers; now more people must hear of it: `content`, `ads`, `launch`, `outbound`.")
+    elif f >= 85:
+        lines.append("  Reach. The product fits; churn is close to what this kind of business can achieve. "
+                     "Growth now comes from more people hearing about you - and from new customer segments.")
+    else:
+        lines.append(f"  Keep going. Main churn driver: {lever}.")
+    return lines
 
 
 def outbound(s: Session) -> bool:

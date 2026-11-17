@@ -194,6 +194,8 @@ def pitch(s: Session, key: str) -> bool:
             interest += 8
         else:
             interest -= 10
+    if inv.min_mrr > 0 and traction_score(g, inv) < 0.5:
+        interest = min(interest, 58)        # charm does not replace the traction this investor needs
     inv.interest = int(interest)
     inv.last_mrr = engine.mrr(g)
     m = engine.metrics(g)
@@ -680,7 +682,7 @@ def acquisition_interest(g) -> tuple[bool, str]:
     """Would the big corporation want to buy you? (eligible?, their reason)"""
     m = engine.metrics(g)
     sc = scenario_of(g)
-    if m["mrr"] >= 4000 * engine.win_factor(g) / 0.6 * 0.6 and m["fit"] >= 40:
+    if m["mrr"] >= 4000 * engine.win_factor(g) and m["fit"] >= 40:
         return True, "your revenue and customers"
     if g.reputation >= 35 and sum(f.shipped for f in g.features.values()) >= 4:
         return True, "your team's ability to ship with agents (an acquihire)"
@@ -693,7 +695,7 @@ def make_offer(s: Session) -> Offer:
     sc = scenario_of(g)
     m = engine.metrics(g)
     by_revenue = m["arr"] * engine.clamp(engine.revenue_multiple(g, m) * 0.6, 2.5, 9)
-    acquihire = 350_000 + 9_000 * g.reputation
+    acquihire = 120_000 + 4_000 * g.reputation          # an acquihire pays for the team, not the business
     strategic = 1 + 0.6 * m["moat"]
     if by_revenue * strategic >= acquihire and m["mrr"] >= 2500:
         offer = Offer(sc.bigcorp, round(by_revenue * strategic * g.sentiment, -4), "acquisition", g.week)
@@ -783,7 +785,8 @@ def close_offer(s: Session, offer: Offer) -> list[str]:
     s.credit("acquisition")
     s.credit("waterfall")
     s.profile.did("exit_" + offer.kind)
-    g.ended = "acquired" if payout >= 400_000 * engine.win_factor(g) else "acquihired"
+    # an acquihire is a soft landing, never a win; an acquisition wins if it really pays you
+    g.ended = "acquired" if offer.kind == "acquisition" and payout >= 300_000 * engine.win_factor(g) else "acquihired"
     if g.ended == "acquired":
         g.won_paths.append("acquired")
     return lines

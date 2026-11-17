@@ -211,6 +211,8 @@ def start_run(s: Session, spec_path: str, agents: int, model: str) -> AgentRun |
     throughput = capacity * (useful ** exponent) * (0.55 + 0.55 * spec) * (1 - g.debt / 250)
     remaining = 1 - feature.progress
     work = min(remaining, throughput / feature.complexity)
+    if work >= 0.85 * remaining:                             # nearly there: the agent finishes the job
+        work = remaining
     points = work * feature.complexity
     hours = run_hours(points, agents, g.has("planning"))
     if g.hours < MIN_RUN_HOURS:
