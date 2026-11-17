@@ -55,11 +55,13 @@ Customers asked for this in interviews.
 """
 
 
-def make_session(scenario="focusly", run_number=1, seed=1, answers=None, profile=None, quiet=True) -> Session:
+def make_session(scenario="focusly", run_number=1, seed=1, answers=None, profile=None, quiet=True,
+                 guided=False) -> Session:
     io = ScriptedIO(answers)
     game = new_game(scenario, run_number, seed)
     s = Session(game, VFS(), io, profile or Profile())
     s.quiet_learning = quiet
+    game.guided = guided
     files.setup(s)
     build_shell(s)
     return s
