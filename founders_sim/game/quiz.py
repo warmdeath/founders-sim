@@ -334,9 +334,18 @@ def example_question(s: Session, term_id: str) -> Question:
     term = TERMS[term_id]
     pool = [t for t in TERMS.values() if t.id != term_id and t.tier == term.tier and "{" in t.example]
     s.game.rng.shuffle(pool)
-    wrong = [example_for(s, t) for t in pool[:3]]
-    return Question(term_id, f"Which of these describes {term.name.split(' (')[0]} in your company?",
-                    options=[example_for(s, term), *wrong], explain=term.definition)
+    picked = [term] + pool[:3]
+
+    def masked(t) -> str:
+        """Hide each option's own term name, so the answer isn't given away by the wording."""
+        text = example_for(s, t)
+        for name in {t.name, t.name.split(" (")[0]} | set(re.findall(r"\(([^)]*)\)", t.name)):
+            if len(name) >= 3:
+                text = re.sub(re.escape(name), "___", text, flags=re.IGNORECASE)
+        return text
+    options = [masked(t) for t in picked]
+    return Question(term_id, f"Which of these situations in your company is about {term.name.split(' (')[0]}? "
+                    "(term names are hidden as ___)", options=options, explain=example_for(s, term))
 
 
 def ask(s: Session, q: Question, speaker: str = "") -> bool:
@@ -364,7 +373,8 @@ def ask(s: Session, q: Question, speaker: str = "") -> bool:
     if ok:
         s.good(f"Right. [dim]({show_answer(q)})[/dim]" if not q.options else "Right.")
     else:
-        s.bad(f"Not quite. The answer: [bold]{show_answer(q)}[/bold]. [dim]{q.explain}[/dim]")
+        answer = show_answer(q)
+        s.bad(f"Not quite. The answer: [bold]{answer}[/bold]{'' if answer.endswith('.') else '.'} [dim]{q.explain}[/dim]")
         g.bump("quiz_wrong")
     g.bump("quiz_asked")
     return ok
