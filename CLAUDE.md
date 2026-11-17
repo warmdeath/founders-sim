@@ -1,7 +1,8 @@
 # CLAUDE.md — project memory for coding agents
 
 Read `SPEC.md` (the original brief, saved verbatim) before changing behaviour. `REVIEW.md` records the
-decisions made while building and the known simplifications.
+decisions made while building and the known simplifications. `PLAYTEST.md` lists the problems a full
+playtest found, what was fixed, and what is still open - check it before changing balance or UX.
 
 ## Goal
 
@@ -26,7 +27,7 @@ Non-negotiables from the spec:
 pip install -r requirements.txt
 python3 -m founders_sim            # play (continues a save)
 python3 -m founders_sim --new --seed 3
-python3 -m pytest                  # 59 tests, about 2 seconds
+python3 -m pytest                  # 70 tests, about 2.5 seconds
 ```
 
 Non-interactive smoke test (commands on stdin, no TTY needed):
@@ -48,8 +49,8 @@ founders_sim/
     coreutils.py      simulated unix commands (ls, cat, grep, sort, find, chmod, ...)
     completion.py     Tab completion (commands, paths, game entities)
   learn/
-    terms.py          THE VOCABULARY CURRICULUM: 176 ordered terms (data)
-    bash_lessons.py   the bash curriculum: lessons + man pages (data)
+    terms.py          THE VOCABULARY CURRICULUM: 191 ordered terms + DEEPER notes (data)
+    bash_lessons.py   the bash curriculum: 38 lessons + man pages (data)
     notebook.py       unlocking terms/lessons, notebook and glossary screens
     profile.py        persistent learner profile (mastery across runs)
     missions.py       run-1 tutorial missions, `tutor`, shell challenges
@@ -93,16 +94,24 @@ for files just read, and advances tutorial missions.
   then call `s.learn("id")` where the situation arises (or add a condition to `learn/situations.py`) and
   `s.credit("id")` when the player applies it. A test fails if any term is unreachable.
 - Mastery pacing: `quiz.question_of_the_week` (1 question in run 1, 2 afterwards) is the main source of
-  credits; simulated players reach ~140 mastered terms in 5-6 runs. Re-check if you change it.
+  credits; a simulated learner masters ~155 of 191 terms in 6 runs. Re-check if you change it.
+- Build `quiz.Question` with `explain=` as a keyword: the 5th positional slot is `options`, and the
+  constructor raises if a string lands there (this bug once broke every investor calculation question).
+- Test harnesses that auto-answer questions hide display bugs: render new question types once through
+  `ScriptedIO` (or a pseudo-terminal) and read the output.
 - New bash command → implement in `coreutils.py` with real flags and error messages, add a `Lesson`
   (or an `EXTRA_MAN` entry) and a test in `tests/test_shell.py`.
 - New game command → function in `commands.py`, entry in `GAME_MAN`, row in `register_game_commands`,
   completion entry in `_complete_table` if it takes entities.
-- Balance changes: re-run the bots (see `tests/helpers.py::Bot`). Targets: careless bot (skill 0.3)
-  loses; mid bot (0.75) wins around week 40–55; expert bot (1.0) around week 30.
+- Balance changes: re-run the bots (see `tests/helpers.py::Bot`). Current results (REVIEW.md section 6):
+  careless bot (skill 0.3) always loses; mid bot (0.75) wins week ~26-36 at level 1, ~37-46 at level 3,
+  ~48-67 at level 5; expert (1.0) ~20-37. Known gap: mid-skill wins earlier than ideal at levels 1-2.
+- Win targets come from `engine.win_targets()` - use it rather than recomputing from scenario fields.
+- Concept panels go through `Session.show_later()` and are flushed after the command's output.
 - Code should stay readable for a beginner: short functions, docstrings that explain the *concept*.
 - Commit after each working milestone; keep `python3 -m pytest` green.
 
 ## Status
 
-All features in `SPEC.md` are implemented. Ideas for next features are listed at the end of `REVIEW.md`.
+All features in `SPEC.md` are implemented, plus a second pass (playtest fixes, curriculum audit, README
+check). Open issues are at the end of `PLAYTEST.md`; ideas for next features at the end of `REVIEW.md`.
