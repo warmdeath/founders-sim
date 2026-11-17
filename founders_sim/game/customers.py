@@ -320,6 +320,8 @@ def work_deal(s: Session, key: str, free: bool = False) -> bool:
     odds = chance * (0.45 + engine.fit(g) / 110) * (0.8 + g.reputation / 150)
     if next_stage in ("pilot", "won"):
         odds *= 0.5 + engine.quality(g) / 150
+    if not free and deal.size != "smb" and next_stage in ("demo", "pilot", "procurement", "won"):
+        odds *= 1.25 if buyer_question(s, deal, next_stage) else 0.6
     if g.rng.random() < min(0.95, odds):
         deal.stage += 1
         deal.stage_week = g.week
@@ -353,6 +355,38 @@ def work_deal(s: Session, key: str, free: bool = False) -> bool:
         else:
             s.say(f"{deal.company}: no progress this time ('we need to think about it'). Try again later.")
     return True
+
+
+def buyer_question(s: Session, deal, stage: str) -> bool:
+    """Business buyers speak the language too. Their question is built
+    from THIS deal's numbers; a good answer makes the step likelier."""
+    from . import quiz
+    g = s.game
+    m = engine.metrics(g)
+    who = {"demo": "your champion", "pilot": "their head of operations", "procurement": "their procurement manager",
+           "won": "their CFO"}[stage]
+    if stage == "demo":
+        q = quiz.Question("acv", f"We'd pay {money(deal.mrr)} a month. For our budget: what is the annual contract value?",
+                          deal.mrr * 12, "$", explain="ACV = monthly contract value x 12.")
+    elif stage == "pilot":
+        q = quiz.Question("pilot", "Before we roll this out company-wide, what should we agree on for the pilot?",
+                          options=["Clear success criteria and an end date, decided up front",
+                                   "Nothing - let's just try it and see", "The final price only",
+                                   "That it lasts until our team is fully convinced"],
+                          explain="Pilots without success criteria and an end date drift and never convert.")
+    elif stage == "procurement":
+        q = quiz.Question("payment_terms", "Our standard terms are net-60. What does that mean for you?",
+                          options=["We pay each invoice 60 days after receiving it - you wait two months for cash",
+                                   "We pay 60% now and the rest later", "We get a 60-day free trial",
+                                   "The contract lasts 60 days"],
+                          explain="Net-60: payment is due 60 days after the invoice. Revenue now, cash much later.")
+    else:
+        q = quiz.Question("gross_margin", "We compare vendors' health. What is your gross margin, in percent?",
+                          m["margin"] * 100, "%", explain="Gross margin = (revenue - COGS) / revenue - it's in `metrics`.")
+    ok = quiz.ask(s, q, f"{deal.company} - {who}")
+    if not ok:
+        s.note("The buyer hesitates: that answer didn't build confidence. (This step is now less likely to succeed.)")
+    return ok
 
 
 def pipeline_tick(s: Session) -> list[str]:

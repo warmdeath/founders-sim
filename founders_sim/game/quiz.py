@@ -29,6 +29,10 @@ class Question:
     options: list[str] = field(default_factory=list)   # choice questions (first = correct)
     explain: str = ""
 
+    def __post_init__(self):
+        if isinstance(self.options, str):        # guard: an explanation passed in the options slot
+            raise TypeError(f"Question {self.term}: pass the explanation as explain=..., not as options")
+
 
 def parse_number(text: str) -> float | None:
     """'$12.5k' -> 12500, '8%' -> 8, '1.2m' -> 1200000, '3x' -> 3"""
@@ -66,30 +70,30 @@ def number_questions(s: Session) -> list[Question]:
         out.append(Question(term, text, value, unit, explain=explain))
 
     if m["mrr"] > 0:
-        add("mrr", "What's your MRR right now?", m["mrr"], "$", "MRR = paying customers x monthly price, plus contracts.")
-        add("arr", "What is your ARR?", m["arr"], "$", "ARR = MRR x 12.")
+        add("mrr", "What's your MRR right now?", m["mrr"], "$", explain="MRR = paying customers x monthly price, plus contracts.")
+        add("arr", "What is your ARR?", m["arr"], "$", explain="ARR = MRR x 12.")
         add("churn", "What's your monthly churn, in percent?", m["churn"] * 100, "%",
-            "Churn = share of customers who cancel per month. It's on your `metrics` screen.")
+            explain="Churn = share of customers who cancel per month. It's on your `metrics` screen.")
         add("gross_margin", "What's your gross margin, in percent?", m["margin"] * 100, "%",
-            "Gross margin = (revenue - COGS) / revenue.")
-        add("arpu", "What's your average revenue per customer per month?", m["arpu"], "$", "ARPU = MRR / customers.")
-        add("ltv", "What's a customer's lifetime value?", m["ltv"], "$", "LTV = ARPU x gross margin / monthly churn.")
+            explain="Gross margin = (revenue - COGS) / revenue.")
+        add("arpu", "What's your average revenue per customer per month?", m["arpu"], "$", explain="ARPU = MRR / customers.")
+        add("ltv", "What's a customer's lifetime value?", m["ltv"], "$", explain="LTV = ARPU x gross margin / monthly churn.")
     if m["customers"] >= 1:
         add("customer", "How many paying customers do you have?", m["customers"], "", "Count customers who PAY.")
     if m["burn"] > 0:
-        add("burn_rate", "What's your net burn per month?", m["burn"], "$", "Net burn = monthly costs - monthly revenue.")
-        add("runway", "How many months of runway do you have?", m["runway"], "months", "Runway = cash / net monthly burn.")
+        add("burn_rate", "What's your net burn per month?", m["burn"], "$", explain="Net burn = monthly costs - monthly revenue.")
+        add("runway", "How many months of runway do you have?", m["runway"], "months", explain="Runway = cash / net monthly burn.")
     if m["cac"] > 0:
-        add("cac", "What's your CAC?", m["cac"], "$", "CAC = sales & marketing spend / new customers (last 4 weeks).")
-        add("ltv_cac", "What's your LTV to CAC ratio?", m["ltv_cac"], "x", "LTV / CAC. 3x or more is considered healthy.")
+        add("cac", "What's your CAC?", m["cac"], "$", explain="CAC = sales & marketing spend / new customers (last 4 weeks).")
+        add("ltv_cac", "What's your LTV to CAC ratio?", m["ltv_cac"], "x", explain="LTV / CAC. 3x or more is considered healthy.")
         add("payback", "How many months to pay back your CAC?", m["payback"], "months",
-            "Payback = CAC / (ARPU x gross margin).")
+            explain="Payback = CAC / (ARPU x gross margin).")
     if len(g.history) >= 5 and g.history[-5].mrr > 50:
         add("growth_rate", "What's your month-over-month MRR growth, in percent?", m["growth"] * 100, "%",
-            "Growth = MRR now / MRR four weeks ago - 1.")
-    add("tam", "How big is your TAM, in dollars per year?", sc.tam[1], "$", "It is in customers/market.md.")
+            explain="Growth = MRR now / MRR four weeks ago - 1.")
+    add("tam", "How big is your TAM, in dollars per year?", sc.tam[1], "$", explain="It is in customers/market.md.")
     add("som", "How many customers are in your obtainable market (SOM)?", sc.som[0], "", "See customers/market.md.")
-    add("cash", "How much cash do you have in the bank?", g.cash, "$", "The first line of `status`.")
+    add("cash", "How much cash do you have in the bank?", g.cash, "$", explain="The first line of `status`.")
     return out
 
 
@@ -112,24 +116,24 @@ def calc_questions(s: Session) -> list[Question]:
     pref = rng.choice([1, 2]) * 1e6
     return [
         Question("post_money", f"If I invest {money(inv)} at a {money(pre)} pre-money valuation, what's the post-money?",
-                 pre + inv, "$", "Post-money = pre-money + investment."),
+                 pre + inv, "$", explain="Post-money = pre-money + investment."),
         Question("dilution", f"I invest {money(inv)} at {money(pre)} pre-money. What percentage of the company do I own after?",
-                 inv / (pre + inv) * 100, "%", "Investor % = investment / post-money."),
+                 inv / (pre + inv) * 100, "%", explain="Investor % = investment / post-money."),
         Question("dilution", f"You own {own:.0f}% today. If you sell {sell}% of the company in this round, what do you own after?",
-                 own * (1 - sell / 100), "%", "Everyone is diluted proportionally: your % x (1 - % sold)."),
+                 own * (1 - sell / 100), "%", explain="Everyone is diluted proportionally: your % x (1 - % sold)."),
         Question("valuation_cap", f"A {money(safe_amt)} SAFE with a {money(cap)} cap converts in a round priced far above the cap. "
                  "Roughly what % of the company does it buy?", safe_amt / cap * 100, "%",
-                 "Above the cap, a SAFE converts as if the company were worth the cap: amount / cap."),
+                 explain="Above the cap, a SAFE converts as if the company were worth the cap: amount / cap."),
         Question("the_ask", f"You burn {money(burn)} a month and raise {money(raise_amt)}. How many months of runway does that buy "
-                 "(ignoring growth)?", raise_amt / burn, "months", "Months = money raised / monthly burn."),
+                 "(ignoring growth)?", raise_amt / burn, "months", explain="Months = money raised / monthly burn."),
         Question("interest", f"A {money(principal)} loan at {apr}% APR: roughly how much interest in the first year "
-                 "(ignore repayments)?", principal * apr / 100, "$", "Interest ≈ principal x APR."),
+                 "(ignore repayments)?", principal * apr / 100, "$", explain="Interest ≈ principal x APR."),
         Question("liquidation_preference", f"An investor put in {money(pref)} with a 1x non-participating preference and owns 20%. "
                  f"The company sells for {money(price)}. How much do they get?", max(pref, 0.2 * price), "$",
-                 "Non-participating: the GREATER of their money back (1x) or their percentage of the price."),
+                 explain="Non-participating: the GREATER of their money back (1x) or their percentage of the price."),
         Question("participating", f"Same investor, but 1x PARTICIPATING: {money(pref)} invested, 20% ownership, sale price "
                  f"{money(price)}. How much do they get?", pref + 0.2 * (price - pref), "$",
-                 "Participating: money back first, THEN their % of what is left."),
+                 explain="Participating: money back first, THEN their % of what is left."),
     ]
 
 

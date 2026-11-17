@@ -34,6 +34,7 @@ the behaviour is testable, a test.
 | 11 | An angel with a $20–60k cheque asked "If I invest $2,000,000 at a $1,500,000 pre-money...". | Fixed: question rounds now sell 10–25% of the company. |
 | 12 | The shell challenge list said `answer c2 <your answer>` for challenges that have no answer value. | Fixed. |
 | 13 | The notebook listed shell lessons by internal id (`ls_flags`, `redirect_append`). | Fixed: shows lesson titles. |
+| 14b | **All eight investor calculation questions were broken** (post-money, dilution, SAFE cap, runway from a raise, interest, both liquidation-preference questions): the explanation landed in the "options" slot, so in a real terminal they showed up as multiple choice with single letters as options. Found during the curriculum audit; the playtest harness had auto-answered questions and hidden it. | Fixed: explanations passed by name, the `Question` constructor rejects the mistake, regression test added. |
 
 ## Confusing moments
 

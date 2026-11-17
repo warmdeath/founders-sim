@@ -154,3 +154,15 @@ def test_deeper_notes_appear_in_the_notebook_file():
     s.learn("churn")
     out = run(s, "cat notebook/*churn.md", "nb churn")
     assert "GO DEEPER" in out and "enterprise SaaS" in out
+
+
+def test_number_questions_are_really_number_questions():
+    s = make_session()
+    s.game.idea = 0
+    s.game.customers = 50
+    for q in quiz.calc_questions(s) + quiz.number_questions(s):
+        assert q.options == [] and q.unit in ("$", "%", "months", "x", "") and q.explain, q.term
+    out = run(s)  # noqa: F841
+    s.io.answers = ["no idea"]
+    quiz.ask(s, quiz.calc_questions(s)[0])
+    assert "The answer: $" in s.io.output()

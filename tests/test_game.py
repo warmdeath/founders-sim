@@ -219,6 +219,8 @@ def test_b2b_deal_needs_feature_and_respects_sales_cycle():
     g.reputation = 60
     g.deals["costa_group"] = Deal("costa_group", "Costa Agency Group", "enterprise", 5200, "sso_audit", 4, 1, "open", 0, 1)
     g.week = 10
+    from founders_sim.game import quiz
+    quiz.ask = lambda sess, q, speaker="": True
     out = run(s, "sales costa_group")
     assert "will not sign without" in out and g.deals["costa_group"].status == "open"
     ship(s, "sso_audit")
@@ -508,3 +510,15 @@ def test_raising_price_raises_gross_margin_in_usage_model():
     assert engine.metrics(g)["margin"] > low
     ship(s, "caching")
     assert engine.cogs_per_customer(g) < 38
+
+
+def test_business_buyers_ask_questions_from_the_deal():
+    s = make_session("ledgerly", seed=3, answers=["1.4k"])
+    g = s.game
+    g.idea = 0
+    ship(s, "reminders")
+    g.deals["galli"] = Deal("galli", "Galli & Partners", "mid", 1400, "", 1, 1, "open", 0, 1)
+    g.week = 5
+    out = run(s, "sales galli")
+    assert "annual contract value" in out and "$16,800" in out          # wrong answer shows the right one
+    assert s.profile.terms["acv"]["bad"] == 1
