@@ -380,13 +380,12 @@ def practice_question(s: Session, term: str) -> Question:
 
 
 def question_of_the_week(s: Session) -> None:
-    """One quick question from your mentor at the start of each week.
+    """A quick question or two from your mentor at the start of each week.
     This is the main way seen terms become mastered terms."""
-    terms = practice_terms(s)
-    if not terms:
-        return
-    if ask(s, practice_question(s, terms[0]), "Nora's question of the week"):
-        s.game.energy = min(100, s.game.energy + 1)
+    count = 1 if s.game.level == 1 else 2          # the guided first run asks less
+    for term in practice_terms(s)[:count]:
+        if ask(s, practice_question(s, term), "Nora's question of the week"):
+            s.game.energy = min(100, s.game.energy + 1)
 
 
 def office_hours(s: Session, n: int = 3) -> int:

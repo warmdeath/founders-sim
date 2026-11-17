@@ -26,7 +26,7 @@ Non-negotiables from the spec:
 pip install -r requirements.txt
 python3 -m founders_sim            # play (continues a save)
 python3 -m founders_sim --new --seed 3
-python3 -m pytest                  # ~60 tests, about 2 seconds
+python3 -m pytest                  # 59 tests, about 2 seconds
 ```
 
 Non-interactive smoke test (commands on stdin, no TTY needed):
@@ -53,6 +53,7 @@ founders_sim/
     notebook.py       unlocking terms/lessons, notebook and glossary screens
     profile.py        persistent learner profile (mastery across runs)
     missions.py       run-1 tutorial missions, `tutor`, shell challenges
+    situations.py     terms unlocked when the company reaches a state (checked weekly)
   game/
     state.py          dataclasses for all game state (+ JSON conversion)
     scenarios.py      four scenarios, investors, hire candidates, difficulty levels, new_game()
@@ -89,7 +90,10 @@ for files just read, and advances tutorial missions.
 - A command function returns an exit code (0 = success) like a real program; errors go to `ctx.err`.
 - Output that should be pipeable goes through `ctx.out/line/show`, not straight to `s.io`.
 - New term → add to `learn/terms.py` in curriculum position (prerequisites earlier; a test enforces it),
-  then call `s.learn("id")` where the situation arises and `s.credit("id")` when the player applies it.
+  then call `s.learn("id")` where the situation arises (or add a condition to `learn/situations.py`) and
+  `s.credit("id")` when the player applies it. A test fails if any term is unreachable.
+- Mastery pacing: `quiz.question_of_the_week` (1 question in run 1, 2 afterwards) is the main source of
+  credits; simulated players reach ~140 mastered terms in 5-6 runs. Re-check if you change it.
 - New bash command → implement in `coreutils.py` with real flags and error messages, add a `Lesson`
   (or an `EXTRA_MAN` entry) and a test in `tests/test_shell.py`.
 - New game command → function in `commands.py`, entry in `GAME_MAN`, row in `register_game_commands`,
