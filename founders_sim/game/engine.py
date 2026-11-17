@@ -221,7 +221,9 @@ def stage_name(m: dict) -> str:
 
 def fmt_runway(m: dict) -> str:
     if m["runway"] == float("inf"):
-        return "unlimited (you are not burning cash)"
+        return "unlimited (not burning cash)"
+    if m["runway"] > 60:
+        return "over 5 years"
     return f"{m['runway']:.1f} months"
 
 

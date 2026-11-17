@@ -348,7 +348,9 @@ def merge_run(s: Session, run: AgentRun) -> bool:
         avg_spec = sum(r.spec_score for r in runs) / len(runs)
         all_left = sum(bug_count(r, found=False) for r in runs)
         feature.quality = engine.clamp(0.5 + 0.5 * avg_spec / 100 - 0.05 * all_left, 0.3, 1.0)
-        if not feature.revealed and feature.weight < 0.06:
+        # internal features (margin, moat, enterprise, new segment) have their own reasons to exist
+        if feature.kind == "junk" or (not feature.revealed and feature.kind in ("core", "ai", "growth")
+                                      and feature.weight < 0.06):
             g.bump("junk_built")
         s.good(f"Shipped: [bold]{feature.title}[/bold] is live (feature quality {feature.quality * 100:.0f}%).")
         if not was_live:
