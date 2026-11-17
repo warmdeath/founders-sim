@@ -142,6 +142,15 @@ class Session:
         if re.search(r"(^|\s)(\.\.|~|/home|\./)", line):
             g.bump("paths_used")
             self.on_use("paths", True)
+        unquoted = re.sub(r"'[^']*'|\"[^\"]*\"", "", line)
+        if re.search(r"[*?]", unquoted) and words and words[0] not in ("find",):
+            self.on_use("glob", self.shell is not None and self.shell.last_status == 0)
+        if "'" in line or '"' in line:
+            self.on_use("quoting", self.shell is not None and self.shell.last_status != 2)
+        if re.search(r"2>|&>", line):
+            self.on_use("stderr", True)
+        if "&&" in line or "||" in line or "$?" in line:
+            self.on_use("exit_status", True)
         if "--help" in words or (words and words[0] == "man"):
             self.on_use("man", True)
         for lesson in self.pending_lessons:

@@ -170,6 +170,12 @@ L("rm", "rm - remove (no undo!)", 3,
        [("-r, -R", "remove directories and their contents recursively"),
         ("-f", "ignore nonexistent files, never prompt")]))
 
+L("glob", "Wildcards: * ? [ ]", 3,
+  "Before a command runs, bash replaces patterns with matching file names: `*` = any characters, `?` = exactly one character, `[abc]` = one of those characters. The command never sees the star - it receives the list of names. If nothing matches, the pattern is passed on unchanged.",
+  [("ls customers/notes/*.md", "every .md file in that folder"), ("cat inbox/00?_*", "files whose names start 00 + one character + _"),
+   ("echo *", "see what a pattern expands to - a safe way to test before rm"), ("rm reports/*.tmp", "delete only the .tmp files")],
+  "Before you approve an agent's `rm` or `mv` with a wildcard, run `echo` with the same pattern to see exactly which files it would hit. `rm -rf *` in the wrong directory is the most famous terminal accident there is.",
+  "echo customers/notes/*")
 # ------------------------------------------------------------------ level 4
 L("echo", "echo - print text", 4,
   "Prints its arguments. Useful with variables and - above all - with redirection to write text into files.",
@@ -180,6 +186,12 @@ L("echo", "echo - print text", 4,
   _man("echo - display a line of text", "echo [-n] [-e] [STRING]...",
        "Echo the STRING(s) to standard output.",
        [("-n", "do not output the trailing newline"), ("-e", "enable interpretation of backslash escapes like \\n")]))
+L("quoting", "Quotes: ' ' vs \" \" and spaces", 4,
+  "Spaces separate arguments, so a name with spaces must be quoted. Single quotes keep everything literally ('$HOME' stays $HOME). Double quotes still expand variables and $(commands) (\"$HOME\" becomes /home/founder) but stop splitting and wildcards. A backslash escapes one character.",
+  [("echo 'cost: $5'", "single quotes: printed exactly"), ("echo \"I am $USER\"", "double quotes: $USER is replaced"),
+   ("grep \"big deal\" customers/notes/*", "two words searched as ONE pattern"), ("echo \"today: $(date)\"", "$(...) runs a command inside the text")],
+  "Most 'the agent's command failed mysteriously' moments are quoting problems: a path with a space, a $ that got expanded, a quote that was never closed. When a command looks right but misbehaves, check the quotes first.",
+  "grep -i \"would pay\" customers/notes/*")
 L("redirect", "> - send output into a file", 4,
   "`command > file` writes the command's output into a file instead of the screen. It REPLACES the file's contents.",
   [("echo '# Ideas' > product/notes.md", "create/overwrite a file with one line"),
@@ -193,6 +205,12 @@ L("redirect_append", ">> - append to a file", 4,
   "Appending a line is the quickest way to add a rule to a project memory file like CLAUDE.md or AGENTS.md when an agent keeps making the same mistake.",
   "echo 'second line' >> ~/hello.txt")
 
+L("stderr", "stderr: 2> and 2>&1", 4,
+  "Programs have two output streams: stdout (normal output, file descriptor 1) and stderr (error messages, descriptor 2). `>` only redirects stdout, so errors still reach the screen. `2>` sends errors to a file, `2>&1` sends them wherever stdout goes, `&>` does both at once.",
+  [("cat a nope > out.txt", "the error still shows on screen - it went to stderr"), ("cat a nope 2> errors.txt", "errors into a file"),
+   ("grep -r pricing / 2> /dev/null", "throw errors away (on a real system)"), ("cat a nope > all.txt 2>&1", "both streams into one file")],
+  "When you capture an agent's or a build's output for later, capture BOTH streams (`> log.txt 2>&1`) - the error you need is almost always on stderr.",
+  "cat nope 2> reports/errors.txt; cat reports/errors.txt")
 # ------------------------------------------------------------------ level 5
 L("pipe", "| - pipes: connect commands", 5,
   "`a | b` feeds the output of command a into command b as its input. Small tools, chained, answer big questions. This is THE idea of the unix shell.",
@@ -200,6 +218,12 @@ L("pipe", "| - pipes: connect commands", 5,
    ("grep -l pricing customers/notes/* | wc -l", "how many notes mention pricing?")],
   "Agents chain commands with pipes constantly. If you can read a pipeline, you can check what an agent is about to run before approving it.",
   "ls inbox | wc -l")
+L("exit_status", "Exit status, && and ||", 5,
+  "Every command ends with a number: 0 means success, anything else means failure. `$?` holds the last one. `a && b` runs b only if a succeeded; `a || b` runs b only if a failed. `;` just runs the next command either way.",
+  [("grep -q FAIL tests.log; echo $?", "0 if FAIL was found, 1 if not"), ("mkdir reports && cd reports", "cd only if mkdir worked"),
+   ("cat plan.md || echo 'no plan yet'", "a fallback when something fails"), ("grep -c FAIL agents/runs/*/tests.log && echo found", "chain checks")],
+  "This is how scripts, CI and agents decide what to do next: tests exit with non-zero when they fail, and `&&` stops the chain - which is exactly how 'don't deploy if the tests fail' is written.",
+  "grep -q FAIL agents/runs/*/tests.log && echo 'something failed'")
 L("grep", "grep - search inside files", 5,
   "Prints the lines that match a pattern. The single most useful search tool there is.",
   [("grep pricing customers/notes/maria.md", "lines containing 'pricing'"),

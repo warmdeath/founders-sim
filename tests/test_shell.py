@@ -151,3 +151,19 @@ def test_spec_reuse_must_be_adapted():
                  "s/Invalid input shows a clear error/Edits made offline sync later/; s/one thousand records/a full course/' "
                  "product/specs/offline.md", "spec check product/specs/offline.md")
     assert "Copy:" not in out and "Score: 100/100" in out
+
+
+def test_stderr_dev_null_and_exit_status():
+    s = make_session()
+    out = run(s, "cat nope 2> err.txt", "cat err.txt", "cat nope > all.txt 2>&1", "cat all.txt",
+              "cat nope 2> /dev/null; echo $?", "echo hidden > /dev/null", "cat /dev/null | wc -c",
+              "mkdir -p x && echo made", "cat nope || echo fallback")
+    assert out.count("cat: nope: No such file or directory") == 3     # err.txt, all.txt, and the last line
+    assert out.splitlines()[-5:] == ["1", "0", "made", "cat: nope: No such file or directory", "fallback"]
+
+
+def test_syntax_skills_unlock_lessons():
+    s = make_session()
+    run(s, "echo customers/notes/*", "echo 'a b'", "cat nope 2> /dev/null", "true && echo ok")
+    for lesson in ("sh_glob", "sh_quoting", "sh_stderr", "sh_exit_status"):
+        assert lesson in s.game.notebook

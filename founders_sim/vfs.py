@@ -85,6 +85,8 @@ class VFS:
         self.root = Dir("")
         self.clock = 0  # current game week, stamped on files when they change
         self.mkdir(COMPANY, parents=True)
+        self.mkdir("/dev")
+        self.write("/dev/null", "", mode=0o666)     # the bit bucket: anything written here disappears
 
     # ---------------------------------------------------------------- paths
     @staticmethod
@@ -162,6 +164,8 @@ class VFS:
         player made read-only; player commands never pass it."""
         parent, name = self._parent_and_name(path, cwd)
         node = parent.children.get(name)
+        if isinstance(node, File) and node.path() == "/dev/null":
+            return node
         if isinstance(node, Dir):
             raise VFSError("Is a directory", path)
         if node is None:
