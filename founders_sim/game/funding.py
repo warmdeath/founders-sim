@@ -563,6 +563,11 @@ def describe_loan(offer: LoanOffer) -> str:
         if offer.kind == "term":
             lines += ["Covenant:    keep at least $3,000 in the bank at all times (penalty if breached)"]
         lines += [f"Personal guarantee: {'YES - you personally owe this if the company fails' if offer.guarantee else 'no'}"]
+    secured = {"startup": "nothing of the company's (it has no assets to pledge) - hence the personal guarantee",
+               "term": "the company's receivables (money customers owe you) and other assets",
+               "rbf": "the company's future revenue",
+               "venture": "all company assets, including your code and IP (a 'blanket lien')"}[offer.kind]
+    lines += [f"Secured by:  {secured}"]
     lines += ["", f"Commands: loan apply {offer.key}"]
     return "\n".join(lines) + "\n"
 

@@ -260,6 +260,9 @@ def example_vars(g: Game) -> dict:
         "multiple": f"{revenue_multiple(g, m):.0f}", "cash_change": money(g.cash - last_cash),
         "loan_balance": money(m["loan_balance"]), "loan_weekly": money(m["loan_weekly"]),
         "board_seats": str(board),
+        "dscr": (f"{max(0.0, m['revenue_month'] - (m['costs_month'] - m['loan_weekly'] * W)) / (m['loan_weekly'] * W):.2f} "
+                 f"(operating profit {money(m['revenue_month'] - (m['costs_month'] - m['loan_weekly'] * W))} / loan payments "
+                 f"{money(m['loan_weekly'] * W)} a month)") if m["loan_weekly"] > 0 else "no loan payments yet, so nothing to cover",
     }
 
 
