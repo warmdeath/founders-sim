@@ -105,10 +105,12 @@ def paid_cac(g: Game, budget: float | None = None) -> float:
 
 
 def cogs_per_customer(g: Game) -> float:
+    """Cost to serve one customer for a month. It depends on how much they
+    USE (fixed per scenario), not on what you charge - so a higher price
+    raises gross margin. Margin features (caching, cheaper models) cut it."""
     sc = scenario_of(g)
-    scale = revenue_per_customer(g) / (sc.price0 * sc.price_mult) if sc.model == "usage" else 1.0
     saving = 1 - 0.5 * feature_quality(g, "margin")
-    return sc.cogs * g.cogs_mult * saving * max(scale, 0.3)
+    return sc.cogs * g.cogs_mult * saving
 
 
 def won_deals(g: Game):

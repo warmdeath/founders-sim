@@ -114,7 +114,7 @@ _add(Scenario(
     start_cash=20000, living=280, price0=49, price_unit="$/month per company", price_mult=1.0,
     wtp=110, base_churn=0.07, min_churn=0.012, cac=260, organic=0.8, viral=0.005, cogs=6, infra=60,
     tam=(5_500_000, 6_600_000_000), sam=(420_000, 500_000_000), som=(6_000, 7_200_000),
-    competitor="PayPronto", bigcorp="Finaxis", profit_mrr=14000, raise_target=900_000,
+    competitor="PayPronto", bigcorp="Finaxis", profit_mrr=20000, raise_target=900_000,
     features=[
         ("reminders", "Smart payment reminders", 20, .26, True, "core",
          "I hate writing 'just checking in' emails - I want them sent for me, politely"),
@@ -160,10 +160,10 @@ _add(Scenario(
            ("NoCodeScrape", "A no-code web scraping tool.", 0.5),
            ("ReviewBot", "An AI bot that reviews pull requests.", 0.6)],
     start_cash=14000, living=250, price0=60, price_unit="$/month average usage bill per customer",
-    price_mult=1.0, wtp=120, base_churn=0.10, min_churn=0.02, cac=170, organic=1.6, viral=0.008,
+    price_mult=1.0, wtp=120, base_churn=0.10, min_churn=0.02, cac=210, organic=1.4, viral=0.006,
     cogs=38, infra=50,
     tam=(1_200_000, 2_900_000_000), sam=(150_000, 360_000_000), som=(5_000, 7_000_000),
-    competitor="DocuMind", bigcorp="CloudCore", profit_mrr=16000, raise_target=800_000,
+    competitor="DocuMind", bigcorp="CloudCore", profit_mrr=30000, raise_target=800_000,
     features=[
         ("accuracy", "Table extraction accuracy", 22, .26, True, "ai",
          "if it gets one number wrong in a table I can't trust any of it"),
@@ -213,7 +213,7 @@ _add(Scenario(
     price_mult=1.7, wtp=17, base_churn=0.13, min_churn=0.03, cac=38, organic=2.5, viral=0.011,
     cogs=3.5, infra=45,
     tam=(9_000_000, 18_000_000_000), sam=(700_000, 1_400_000_000), som=(25_000, 8_500_000),
-    competitor="TutorHive", bigcorp="LearnCorp", profit_mrr=11000, raise_target=1_000_000,
+    competitor="TutorHive", bigcorp="LearnCorp", profit_mrr=14000, raise_target=1_000_000,
     features=[
         ("booking", "Instant booking", 20, .26, True, "core",
          "I gave up after three tutors didn't answer my messages - just let me book a slot"),

@@ -495,3 +495,16 @@ def test_acquihire_is_a_soft_landing_not_a_win():
     assert offer.kind == "acquihire" and offer.price < 500_000
     run(s, "mna accept", "next", "next", "next")
     assert g.ended == "acquihired" and "acquired" not in g.won_paths
+
+
+def test_raising_price_raises_gross_margin_in_usage_model():
+    s = make_session("parsefy")
+    g = s.game
+    g.idea = 0
+    ship(s, "accuracy")
+    g.customers = 20
+    low = engine.metrics(g)["margin"]
+    g.price = 120
+    assert engine.metrics(g)["margin"] > low
+    ship(s, "caching")
+    assert engine.cogs_per_customer(g) < 38
