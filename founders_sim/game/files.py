@@ -29,6 +29,35 @@ DIRS = ["inbox", "inbox/archive", "product", "product/specs", "customers", "cust
 
 RO = 0o444   # game-generated reports are read-only: a small lesson in permissions
 
+SIMPLIFIED = """# What this game simplifies
+
+The concepts and formulas are real; the world around them is smaller. Know the difference.
+
+MONEY AND CUSTOMERS
+- Customers are a number, not individuals. One blended churn rate; no cohorts tracked separately.
+- One price for all self-serve customers. Revenue arrives weekly. No taxes, VAT or depreciation.
+- "Fit" is one score. Real product-market fit is judged from retention, usage and what customers say.
+- The valuation in `metrics` is a formula. Real startup valuations are negotiated.
+
+AGENTS
+- An agent run finishes instantly; real runs take minutes to hours and you can watch and steer them.
+- `spec check` scores a spec's STRUCTURE, not whether the idea in it is good.
+- Bugs are counted, not real code. Review finds and fixes in one step.
+
+FUNDING AND DEBT
+- SAFEs convert at the lower of the cap price and the discounted price, measured on pre-round shares
+  (close to the older pre-money SAFE; today's standard post-money SAFE is computed slightly differently).
+- One investor per round, no lawyers, closing is instant. No anti-dilution, pro-rata or vetoes are simulated
+  (they are explained in the notebook).
+- Loans have fixed rates; the only covenant is a minimum cash balance.
+- An acquisition has one buyer, three weeks of due diligence, and is paid in cash.
+
+THE SHELL
+- Real bash syntax for what is implemented. Not implemented: while/case/functions, $((arithmetic)),
+  here-documents, job control (&), sed/awk beyond the basics, and real programs like git or python.
+- `nano` here is a simple editor; real nano saves with Ctrl+O and exits with Ctrl+X.
+"""
+
 
 def w(s: Session, rel: str, text: str, mode: int = 0o644) -> None:
     s.fs.write(f"{COMPANY}/{rel}", text, mode=mode, force=True)
@@ -68,6 +97,7 @@ def setup(s: Session) -> None:
         w(s, f"team/candidates/{person.key}.txt",
           f"Name: {person.name}\nRole: {person.role}\nCost: {money(person.weekly_cost)} per week\nEquity: {equity}\n\n"
           f"{person.blurb}\n\nTo hire:  hire team/candidates/{person.key}.txt\n")
+    w(s, "notebook/000_what_is_simplified.md", SIMPLIFIED, RO)
     w(s, "reports/README.txt", "A place for your own scripts and reports. Nothing here is managed by the game.\n")
     s.mail("Nora (your mentor)", "Welcome - read me first",
            f"Hi! I'm Nora. I've started three companies (one worked). I'll check in by email.\n\n"
@@ -78,7 +108,9 @@ def setup(s: Session) -> None:
            "  1. Read product/ideas.md\n"
            "  2. Talk to customers BEFORE building:  ls customers/leads\n"
            "  3. Only then pick an idea, write a spec, and put your AI agents to work.\n\n"
-           "Type `tutor` whenever you want to know what to learn next. Type `status` to see how you're doing.\n\n- Nora\n")
+           "Type `tutor` whenever you want to know what to learn next. Type `status` to see how you're doing,\n"
+           "and `goals` to see what winning means this time.\n\n"
+           "One more thing: this is a simulation. What it simplifies is listed in notebook/000_what_is_simplified.md\n\n- Nora\n")
     sync(s)
 
 
