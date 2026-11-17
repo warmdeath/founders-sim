@@ -108,8 +108,8 @@ def intro(s: Session) -> None:
     io.print(Panel(
         f"[bold]Run {g.run_number} · {g.company}[/bold] - {sc.tagline}\n\n{sc.intro}\n\n"
         f"Cash: {money(g.cash)} · {g.max_weeks} weeks · difficulty {g.level}/5\n"
-        "Win: become profitable, close a priced funding round, or get acquired.\n"
-        "Lose: run out of cash, or burn out.",
+        + "\n".join(engine.goals_lines(g)[:3]) + "\n"
+        "Lose: run out of cash, or burn out.  (`goals` shows your progress at any time.)",
         border_style="cyan", title="A startup-founder simulator you play in a shell", title_align="left"))
     if g.focus:
         io.print("[warn]This run steers you toward:[/warn] "

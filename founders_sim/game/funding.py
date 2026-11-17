@@ -419,9 +419,12 @@ def accept(s: Session, ts: TermSheet) -> None:
         s.profile.did("raised_priced")
         if ts.participating:
             g.flags["took_participating"] = 1
-        if ts.amount >= sc.raise_target * engine.win_factor(g) and "raised" not in g.won_paths:
+        if ts.amount >= engine.win_targets(g)["raise"] and "raised" not in g.won_paths:
             g.won_paths.append("raised")
             g.flags["new_win"] = 1
+        elif "raised" not in g.won_paths:
+            s.note(f"A real priced round - but below the {money(engine.win_targets(g)['raise'])} this run counts as a "
+                   "'successful raise' (see `goals`). Use the money to grow; a bigger round can come later.")
         # venture debt becomes available after a priced round
         g.scheduled.append([g.week + 3, "venture_debt", str(ts.amount)])
     for other in open_termsheets(g):          # other offers on the table react
@@ -786,7 +789,7 @@ def close_offer(s: Session, offer: Offer) -> list[str]:
     s.credit("waterfall")
     s.profile.did("exit_" + offer.kind)
     # an acquihire is a soft landing, never a win; an acquisition wins if it really pays you
-    g.ended = "acquired" if offer.kind == "acquisition" and payout >= 300_000 * engine.win_factor(g) else "acquihired"
+    g.ended = "acquired" if offer.kind == "acquisition" and payout >= engine.win_targets(g)["exit_payout"] else "acquihired"
     if g.ended == "acquired":
         g.won_paths.append("acquired")
     return lines

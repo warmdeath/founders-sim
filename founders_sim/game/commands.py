@@ -107,6 +107,8 @@ def cmd_status(ctx: Ctx):
     open_ch = [c for c, v in g.challenges.items() if v == "open"]
     if open_ch:
         todo.append(f"shell challenges: {', '.join(open_ch)}")
+    target = engine.win_targets(g)["profit_mrr"]
+    t.add_row("Win target", f"MRR {money(target)}", "Progress", f"{min(100, m['mrr'] / target * 100):.0f}%  (`goals`)")
     body = Group(t, Text("\n" + ("Waiting for you: " + "; ".join(todo) if todo else "Nothing waiting. `tutor` suggests a next step."),
                          style="dim"))
     from rich.panel import Panel
@@ -150,6 +152,11 @@ def metrics_rows(g) -> list[tuple[str, str, str]]:
         ("Loans outstanding", money(m["loan_balance"]), f"payments {money(m['loan_weekly'])}/week"),
     ]
     return rows
+
+
+def cmd_goals(ctx: Ctx):
+    for line in engine.goals_lines(S(ctx).game):
+        ctx.line(line)
 
 
 def cmd_metrics(ctx: Ctx):
@@ -799,7 +806,7 @@ def cmd_help(ctx: Ctx):
         ctx.args = ctx.args[:1]
         return sh.commands["man"].fn(ctx)
     groups = [
-        ("Overview", ["status", "metrics", "dash", "next", "rest", "crunch", "inbox", "reply"]),
+        ("Overview", ["status", "goals", "metrics", "dash", "next", "rest", "crunch", "inbox", "reply"]),
         ("Customers", ["idea", "interview", "growth", "price", "ads", "content", "launch", "outbound", "sales"]),
         ("Product & agents", ["spec", "agent", "review", "merge", "fix", "refactor", "upgrade"]),
         ("Money & people", ["deck", "network", "pitch", "ts", "captable", "waterfall", "loan", "mna", "hire", "fire"]),
@@ -823,6 +830,9 @@ def cmd_help(ctx: Ctx):
 GAME_MAN = {
     "status": ("status - one-screen summary of the company", "status   (alias: st)",
                "Shows cash, runway, MRR, hours left this week, energy, and anything waiting for a decision."),
+    "goals": ("goals - the win conditions and your progress", "goals   (alias: win)",
+              "Shows the three ways to win this run (profitability, a priced round, an acquisition) with this run's "
+              "exact targets, and how far you are from each."),
     "metrics": ("metrics - the founder's dashboard", "metrics   (alias: m)",
                 "Every number you should know by heart before an investor meeting. Pipe it: `metrics | grep -i churn`. "
                 "The weekly history is in finance/metrics.csv."),
@@ -936,7 +946,7 @@ def register_game_commands(sh: Shell, s: Session) -> None:
     from ..learn.bash_lessons import EXTRA_MAN
     sh.session = s
     table = [
-        ("status", cmd_status, ("st",)), ("metrics", cmd_metrics, ("m",)), ("next", cmd_next, ("week",)),
+        ("status", cmd_status, ("st",)), ("goals", cmd_goals, ("win",)), ("metrics", cmd_metrics, ("m",)), ("next", cmd_next, ("week",)),
         ("rest", cmd_rest, ()), ("crunch", cmd_crunch, ()), ("idea", cmd_idea, ("ideas",)),
         ("interview", cmd_interview, ()), ("price", cmd_price, ()), ("ads", cmd_ads, ()),
         ("content", cmd_content, ()), ("growth", cmd_growth, ("funnel",)), ("launch", cmd_launch, ()), ("outbound", cmd_outbound, ()),

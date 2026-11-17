@@ -285,6 +285,30 @@ def expected_signups(g: Game) -> dict[str, float]:
             "paid": paid * saturation}
 
 
+def win_targets(g: Game) -> dict[str, float]:
+    """The three win conditions of this run, as numbers."""
+    sc = scenario_of(g)
+    f = win_factor(g)
+    return {"profit_mrr": sc.profit_mrr * f, "raise": sc.raise_target * f, "exit_payout": 300_000 * f}
+
+
+def goals_lines(g: Game) -> list[str]:
+    """Progress toward each win condition, in plain words."""
+    t = win_targets(g)
+    m = metrics(g)
+    from .session import money
+    best_round = max((ts.amount for ts in g.termsheets if ts.kind == "priced" and ts.status == "accepted"), default=0)
+    return [
+        f"1. Profitable company: revenue above costs for 8 weeks in a row with MRR of at least {money(t['profit_mrr'])}."
+        f"  Now: MRR {money(m['mrr'])}, profitable streak {g.profitable_weeks} week(s).",
+        f"2. Successful raise: close a PRICED round (a VC term sheet) of at least {money(t['raise'])}. SAFEs don't count."
+        f"  Now: {money(best_round) if best_round else 'none'}.",
+        f"3. Acquisition: sell the company with at least {money(t['exit_payout'])} reaching you after the waterfall."
+        f"  (An acquihire is a soft landing, not a win.)",
+        f"Lose: cash below $0, or energy at 0.  Time: week {g.week} of {g.max_weeks}.",
+    ]
+
+
 def win_factor(g: Game) -> float:
     """Win targets scale with the run: easier in runs 1-2, higher in 4-5."""
     return {1: 0.6, 2: 0.8, 3: 1.0, 4: 1.25}.get(g.level, 1.5)
