@@ -433,7 +433,9 @@ def reply(s: Session, email) -> bool:
                 deal.paying_from = g.week + 52
                 g.cash += cash
                 s.good(f"Deal: they prepay a year - {money(cash)} in the bank today. Cash now beats cash later.")
+                g.flags["prepaid"] = 1
                 s.credit("cash_flow")
+                s.learn("deferred_revenue")
             else:
                 deal.status = "lost"
                 s.bad("They don't trust the product enough to commit for a year. They leave.")
