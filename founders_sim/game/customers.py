@@ -40,7 +40,10 @@ def interview(s: Session, key: str) -> bool:
     files.write_note(s, lead, discovered)
     idea_name = sc.ideas[lead.likes_idea][0]
     s.good(f"Interviewed {lead.name} ({lead.role}). Notes saved: customers/notes/{key}.md")
-    s.say(f"  They lit up when talking about the problem behind [bold]{idea_name}[/bold].")
+    if g.level == 1:
+        s.say(f"  They lit up when talking about the problem behind [bold]{idea_name}[/bold].")
+    else:
+        s.note(f"  What did they really care about? Read it: cat customers/notes/{key}.md")
     for feature in discovered:
         s.say(f"  [good]Hidden need uncovered:[/good] {feature.title} → added to product/roadmap.md")
     s.learn("customer_interview")
@@ -92,7 +95,8 @@ def pick_idea(s: Session, index: int) -> bool:
                "usually find out months later that it wasn't.")
     else:
         votes = sum(1 for lead in g.leads.values() if lead.interviewed and lead.likes_idea == index)
-        s.say(f"  {votes} of your {n} interviewees really have this problem.")
+        s.say(f"  {votes} of your {n} interviewees really have this problem."
+              + ("" if votes * 2 >= n else " [warn]That is thin evidence.[/warn]"))
         s.learn("problem_solution_fit")
         if sc.ideas[index][2] >= 0.99:
             s.credit("validation")

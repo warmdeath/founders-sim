@@ -110,7 +110,8 @@ class Bot:
         done = sum(l.interviewed for l in g.leads.values())
         if g.idea < 0 and (done >= wanted or not todo):
             votes = [sum(l.interviewed and l.likes_idea == i for l in g.leads.values()) for i in range(3)]
-            self.do(f"idea pick {votes.index(max(votes)) + 1 if careful else 2}")
+            order = g.idea_order or [0, 1, 2]
+            self.do(f"idea pick {order.index(votes.index(max(votes))) + 1 if careful else 2}")
         if g.idea < 0:
             self.do("next")
             return

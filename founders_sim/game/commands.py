@@ -19,7 +19,7 @@ from ..learn import notebook, missions, situations
 from ..learn.terms import TERMS
 from ..learn.bash_lessons import LESSONS
 from .state import STAGES
-from .scenarios import scenario_of
+from .scenarios import scenario_of, shown_ideas
 from .session import Session, money
 from . import engine, agents, customers, funding, events, quiz, files
 
@@ -229,17 +229,21 @@ def cmd_crunch(ctx: Ctx):
 def cmd_idea(ctx: Ctx):
     s, g = S(ctx), S(ctx).game
     sc = scenario_of(g)
+    shown = shown_ideas(g)
     if ctx.args[:1] == ["pick"] and len(ctx.args) == 2 and ctx.args[1].isdigit() and 1 <= int(ctx.args[1]) <= len(sc.ideas):
-        customers.pick_idea(s, int(ctx.args[1]) - 1)
+        customers.pick_idea(s, shown[int(ctx.args[1]) - 1][0])
         files.sync(s)
         return 0
     if ctx.args:
         return usage(ctx, "idea [pick <number>]")
-    for i, (name, pitch, _) in enumerate(sc.ideas):
+    for number, (i, (name, pitch, _)) in enumerate(shown, 1):
         votes = sum(1 for l in g.leads.values() if l.interviewed and l.likes_idea == i)
         mark = "  [good]← you are building this[/good]" if i == g.idea else ""
-        ctx.show(Text.from_markup(f"{i + 1}. [bold]{name}[/bold] - {pitch}{mark}\n"
-                                  f"   [dim]interviewees who really have this problem: {votes} of {customers.interviews_done(g)}[/dim]"))
+        if g.level == 1:                   # run 1 counts the evidence for you; later you read your notes
+            evidence = f"interviewees who really have this problem: {votes} of {customers.interviews_done(g)}"
+        else:
+            evidence = f"evidence: count it yourself -  grep -l \"behind '{name}'\" customers/notes/* | wc -l"
+        ctx.show(Text.from_markup(f"{number}. [bold]{name}[/bold] - {pitch}{mark}\n   [dim]{evidence}[/dim]"))
     s.learn("problem")
 
 

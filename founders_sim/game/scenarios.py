@@ -382,9 +382,19 @@ def new_game(scenario_id: str, run_number: int = 1, seed: int = 0, focus: list[s
     game.investors["accel_launchpad"].known = True
     for key, name, role, cost, equity, blurb in CANDIDATES:
         game.hires[key] = Hire(key, name, role, cost, equity, blurb)
+    game.idea_order = list(range(len(sc.ideas)))
+    if run_number >= 2:                       # from run 2 the best idea is not always number 1
+        game.rng.shuffle(game.idea_order)
     game.holders.append(Holder("You (founder)", "founder", FOUNDER_SHARES))
     game.competitor = 0.05 * level
     return game
+
+
+def shown_ideas(game: Game) -> list[tuple[int, tuple]]:
+    """Ideas in the order the player sees them: [(internal index, (name, pitch, pain)), ...]"""
+    sc = SCENARIOS[game.scenario]
+    order = game.idea_order or list(range(len(sc.ideas)))
+    return [(i, sc.ideas[i]) for i in order]
 
 
 def pricing_mentions(scenario_id: str) -> set[str]:

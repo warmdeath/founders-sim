@@ -252,6 +252,7 @@ class Game:
     audience: float = 0.0               # content marketing "stock" (decays slowly)
     launched: bool = False
     idea: int = -1                      # which idea was picked (-1 = not yet)
+    idea_order: list[int] = field(default_factory=list)   # order the ideas are SHOWN in (shuffled from run 2)
     prod_bugs: float = 0.0              # bugs live in production
     debt: float = 0.0                   # technical debt 0..100
     competitor: float = 0.0             # competitive pressure 0..1

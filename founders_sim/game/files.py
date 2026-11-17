@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from ..vfs import HOME, COMPANY
 from .state import STAGES, WEEKS_PER_MONTH
-from .scenarios import scenario_of, pricing_mentions
+from .scenarios import scenario_of, pricing_mentions, shown_ideas
 from .session import Session, money, slug
 from . import engine
 
@@ -48,7 +48,7 @@ def setup(s: Session) -> None:
              "Look around with: pwd, ls, cd, cat.  Stuck? Type: tutor   (or: help)\n")
     fs.write(f"{COMPANY}/.env", "# Hidden config file (names starting with . are hidden; see them with ls -a)\n"
              "AGENT_MODEL=fast\nCOMPANY_NAME=" + g.company + "\n# Never put real API keys in files you share!\n")
-    ideas = "\n".join(f"{i + 1}. {name}\n   {pitch}\n" for i, (name, pitch, _) in enumerate(sc.ideas))
+    ideas = "\n".join(f"{n}. {name}\n   {pitch}\n" for n, (_, (name, pitch, _pain)) in enumerate(shown_ideas(g), 1))
     w(s, "product/ideas.md",
       f"# Ideas for {g.company}\n\nThree problems you could go after. You don't know yet which one is real.\n\n{ideas}\n"
       "Interview customers (see customers/leads) to find out which problem people actually have,\n"
@@ -112,7 +112,13 @@ def write_note(s: Session, lead, discovered) -> None:
               "- Shrugged at the other ideas ('sure, maybe')."]
     lines += ["", "## Money"]
     if lead.key in pricing_mentions(g.scenario):
-        lines.append(f"- On pricing: \"I'd pay around {lead.wtp:g} ({sc.price_unit}) if it really worked.\"")
+        if sc.model == "marketplace":
+            lines.append(f"- On pricing: \"The platform keeping about {lead.wtp:g}% of each lesson would be fair - "
+                         "more than that and we'd arrange it between ourselves.\"")
+        elif sc.model == "usage":
+            lines.append(f"- On pricing: \"For our volume I'd expect a bill of around ${lead.wtp:g} a month - if it really worked.\"")
+        else:
+            lines.append(f"- On pricing: \"I'd pay around ${lead.wtp:g} a month if it really worked.\"")
         lines.append("- Already pays for something similar or loses real money/time to the problem.")
     else:
         lines.append("- Didn't want to name a number. Not a buyer yet - or you asked too early.")
