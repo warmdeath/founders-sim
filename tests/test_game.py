@@ -297,9 +297,10 @@ def test_pitch_gives_term_sheet_only_with_traction_and_right_answers():
 
 
 def test_loan_amortizes_and_guarantee_can_be_refused():
-    s = make_session(answers=[1])
+    s = make_session()
     g = s.game
     run(s, *["next"] * 6)
+    s.io.answers = [1]
     assert "startup_loan" in g.loan_offers and s.fs.is_file(f"{COMPANY}/finance/bank/startup_loan.txt")
     from founders_sim.game import quiz
     quiz.ask = lambda sess, q, speaker="": True
@@ -364,6 +365,7 @@ def test_challenges_check_real_shell_results():
     g = s.game
     run(s, "next", "next")
     assert g.challenges.get("c1") == "open"
+    assert "What to try this time" not in s.io.output()
     n = len(s.fs.listdir(f"{COMPANY}/inbox"))
     out = run(s, "answer c1 999")
     assert "Not yet" in out
@@ -434,3 +436,31 @@ def test_debrief_names_mistakes():
     out = s.io.output()
     assert "before talking to customers" in out and "without review" in out and "Weak specs" in out
     assert "ran out of cash without ever asking" in out
+
+
+def test_remaining_commands_smoke():
+    """Every command not covered elsewhere runs without crashing."""
+    s = make_session(seed=6, answers=[0] * 50, quiet=False)
+    g = s.game
+    g.idea = 0
+    for key in ("flashcards", "exam_planner"):
+        ship(s, key)
+    g.customers, g.cash = 120, 60_000
+    out = run(s, "status", "inbox", "content", "network", "hire team/candidates/adv_nora.txt", "hire eng_sara", "captable",
+              "waterfall 3m", "fire eng_sara", "price 8", "ads 200", "launch", "outbound", "sales", "agent status",
+              "agent models", "upgrade", "loan", "mna", "ts", "idea", "spec", "challenges", "glossary", "quiz",
+              "cat customers/market.md", "cat finance/pnl.txt", "tree -L 1", "rest", "fix", "refactor", "man pitch",
+              "pitch --help", "help agent", "next", "metrics", "tutor")
+    assert "Traceback" not in out
+    assert "Nora Hale" in out and "If Focusly were sold for $3,000,000" in out
+    assert g.hires["adv_nora"].active and not g.hires["eng_sara"].active
+    assert "tam" in g.notebook and "income_statement" in g.notebook
+    ts = TermSheet("ts_n", "vc_seedline", "priced", 500_000, pre_money=3_000_000, pool_pct=0.15, participating=True,
+                   liq_pref=1.5, board_seat=True, expires=99)
+    g.termsheets.append(ts)
+    g.rng.random = lambda: 0.0
+    s.io.answers = [1]
+    run(s, f"ts show {ts.id}", f"ts negotiate {ts.id}")
+    assert ts.participating is False and ts.liq_pref == 1.0
+    run(s, f"ts decline {ts.id}")
+    assert ts.status == "declined"

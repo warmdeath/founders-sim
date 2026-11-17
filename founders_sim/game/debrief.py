@@ -156,6 +156,8 @@ def plan_next_run(profile: Profile, scenario_just_played: str) -> tuple[list[str
     """Pick focus topics the player hasn't practised, and a scenario for them."""
     untouched = [topic for topic, (_desc, mechs, _sc) in TOPICS.items()
                  if not any(profile.mechanics.get(mech) for mech in mechs)]
+    # topics already suggested (but still not done) move to the back, so the focus rotates
+    untouched.sort(key=lambda topic: profile.mechanics.get("focus_" + topic, 0))
     focus = untouched[:2]
     plays = profile.scenarios
     candidates = [TOPICS[t][2] for t in focus] + sorted(SCENARIOS, key=lambda k: plays.get(k, 0))
@@ -198,6 +200,8 @@ def finish_run(s: Session) -> None:
     p.scenarios[g.scenario] = p.scenarios.get(g.scenario, 0) + 1
     focus, scenario = plan_next_run(p, g.scenario)
     p.next_focus = focus
+    for topic in focus:
+        p.did("focus_" + topic)
     p.endings.append({"run": g.run_number, "scenario": g.scenario, "ending": g.ended, "weeks": g.week - 1,
                       "mrr": round(m["mrr"]), "cash": round(g.cash), "founder_pct": round(m["founder_pct"], 3),
                       "won": won})

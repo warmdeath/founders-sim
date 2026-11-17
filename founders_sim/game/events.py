@@ -228,7 +228,8 @@ EVENTS = [
 
 def _mna_ready(g) -> bool:
     from . import funding
-    return (g.week >= 24 and not g.offers and funding.acquisition_interest(g)[0])
+    start = 14 if "acquisition" in g.focus else 24
+    return (g.week >= start and not g.offers and funding.acquisition_interest(g)[0])
 
 
 FOCUS_BOOST = {       # focus topic -> events made likelier this run
@@ -281,6 +282,15 @@ def mentor_mail(s: Session) -> list[str]:
             out.append(f"[cmd]✉[/cmd]  New mail from your mentor: \"{subject}\"")
             s.learn(*terms)
 
+    if g.focus and g.week == 2 and not g.flag("m_focus"):
+        g.flags["m_focus"] = 1
+        out += focus_brief(s)
+    if "b2b" in g.focus and g.week == 6 and not g.flag("ev_inbound_lead"):
+        line = inbound_lead(s)
+        if line:
+            g.bump("ev_inbound_lead")
+            out.append(line)
+
     interviews = sum(l.interviewed for l in g.leads.values())
     nudge("m_interviews", g.week >= 3 and interviews == 0, "Have you talked to anyone yet?",
           "You've been at it for weeks and haven't interviewed a single customer.\n"
@@ -320,6 +330,48 @@ def mentor_mail(s: Session) -> list[str]:
           f"LTV:CAC is {m['ltv_cac']:.1f}. Each customer costs {money(m['cac'])} and returns {money(m['ltv'])}.\n"
           "Lower the ad budget, raise the price, or fix churn first.", 3, ("ltv_cac", "unit_economics"))
     return out
+
+
+FOCUS_BRIEFS = {
+    "validation": "Interview at least five people before `idea pick`, and follow the evidence shown by `idea`.",
+    "agents": "Build a real agent workflow this time: `upgrade` lists the steps. Get to `tests`, then `subagents` and "
+              "`evals`, and try `agent run <spec> --agents 3`. I've sent $300 of compute credits to get you started.",
+    "fundraising": "Try to close a priced round: `network` to meet VCs, `deck`, then `pitch`. Two competing term sheets "
+                   "give you leverage in `ts negotiate`. I've warmed up the investors I know for you.",
+    "b2b": "Work the B2B pipeline: `outbound`, then `sales <deal>` stage by stage. Mid-size and enterprise deals need "
+           "patience and specific features. A lead I know will write to you soon.",
+    "debt": "Look at debt as an alternative to selling equity: `loan` shows offers, `cat finance/bank/*.txt` the terms. "
+            "A bank I know is ready to talk to you early. Read the personal-guarantee clause twice.",
+    "bootstrapping": "Try to win WITHOUT investors: reach profitability on customer revenue alone. Watch burn weekly.",
+    "acquisition": "Explore selling the company: once you have revenue or reputation, `mna explore`. Then `waterfall "
+                   "<price>` shows who would get what. Keep technical debt low - buyers inspect it.",
+    "marketplace": "This company is a marketplace: revenue = GMV x take rate. Watch what happens when `price` (the take "
+                   "rate) is too high, and build the feature that stops people going around you.",
+    "margins": "This company has heavy compute costs. Watch gross margin in `metrics`; find the roadmap feature that "
+               "cuts COGS; price so that each customer is worth serving.",
+}
+
+
+def focus_brief(s: Session) -> list[str]:
+    """Later runs steer the player toward untouched topics: a concrete
+    brief from the mentor plus a small head start for each topic."""
+    from . import files
+    g = s.game
+    lines = [f"- {FOCUS_BRIEFS[t]}" for t in g.focus if t in FOCUS_BRIEFS]
+    if not lines:
+        return []
+    if "agents" in g.focus:
+        g.cash += 300
+    if "fundraising" in g.focus:
+        for inv in g.investors.values():
+            if inv.known:
+                inv.warm = True
+        g.investors["vc_seedline"].known = g.investors["vc_seedline"].warm = True
+    s.mail("Nora (your mentor)", "What to try this time",
+           "You've done this before, so let's stretch. Things you haven't really practised yet:\n\n"
+           + "\n\n".join(lines) + "\n\n- Nora\n")
+    files.sync(s)
+    return ["[cmd]✉[/cmd]  Your mentor wrote about what to try in this run (see inbox: \"What to try this time\")."]
 
 
 # -------------------------------------------------------- decision replies

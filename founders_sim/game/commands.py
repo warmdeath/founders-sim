@@ -15,7 +15,7 @@ from rich.text import Text
 
 from ..vfs import COMPANY, VFSError
 from ..shell.interpreter import Ctx, Shell
-from ..learn import notebook, missions
+from ..learn import notebook, missions, situations
 from ..learn.terms import TERMS
 from ..learn.bash_lessons import LESSONS
 from .state import STAGES
@@ -189,7 +189,11 @@ def cmd_next(ctx: Ctx):
     m = engine.metrics(g)
     s.say(f"[title]── Week {g.week} ──[/title] {g.hours:g}h available · cash {money(g.cash)} · "
           f"runway {engine.fmt_runway(m)} · energy {g.energy:.0f}")
-    learn_some(s, ["revenue", "costs", "cash", "burn_rate", "runway", "iteration"], 1)
+    if not g.ended:
+        learn_some(s, ["revenue", "costs", "cash", "burn_rate", "runway", "iteration"], 1)
+        situations.weekly_terms(s, 2 - min(2, s.panels_shown))
+        if g.week >= 3 and not g.flags.get("new_win"):
+            quiz.question_of_the_week(s)
     maybe_win(s)
 
 

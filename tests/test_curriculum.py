@@ -102,3 +102,39 @@ def test_glossary_and_tutor_render():
     s = make_session()
     out = run(s, "glossary", "tutor", "notebook")
     assert "Curriculum progress" in out and "Stage 6" in out and "Tutor" in out
+
+
+def test_every_term_has_a_situation_that_unlocks_it():
+    """No term may be unreachable: each must appear in a learn/credit call,
+    a trigger table, or as a prerequisite of a reachable term."""
+    import glob
+    import re
+    from founders_sim.learn.situations import SITUATIONS
+    source = "".join(open(f).read() for f in glob.glob("founders_sim/**/*.py", recursive=True)
+                     if not f.endswith("terms.py"))
+    reachable = set(SITUATIONS) & set(TERMS)
+    reachable |= {word for word in re.findall(r'"([a-z_]+)"', source) if word in TERMS}
+    grew = True
+    while grew:                                   # prerequisites are unlocked along with a term
+        before = len(reachable)
+        for term in list(reachable):
+            reachable |= set(TERMS[term].needs)
+        grew = len(reachable) > before
+    assert sorted(set(TERMS) - reachable) == []
+
+
+def test_focus_topics_steer_the_next_run():
+    from founders_sim.game import debrief, events
+    p = Profile()
+    first, _ = debrief.plan_next_run(p, "focusly")
+    for topic in first:
+        p.did("focus_" + topic)
+    second, _ = debrief.plan_next_run(p, "focusly")
+    assert first != second and len(second) == 2          # untouched topics rotate
+    for topic in debrief.TOPICS:
+        assert topic in events.FOCUS_BRIEFS
+    s = make_session("ledgerly", run_number=2)
+    s.game.focus = ["debt", "fundraising"]
+    out = run(s, "next", "cat inbox/*what_to_try*")
+    assert "personal-guarantee" in out and "startup_loan" in s.game.loan_offers
+    assert s.game.investors["vc_seedline"].known

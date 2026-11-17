@@ -530,7 +530,7 @@ def make_loan_offers(s: Session) -> list[str]:
         g.loan_offers[key] = LoanOffer(key, lender, kind, round(amount, -2), apr, months, **extra)
         out.append(key)
 
-    if g.week >= 6:
+    if g.week >= (2 if "debt" in g.focus else 6):
         offer("startup_loan", "Cassa Locale Bank", "startup", 15000, 0.105, 36, guarantee=True)
     if m["mrr"] >= 3000:
         offer("term_loan", "Cassa Locale Bank", "term", min(120000, m["mrr"] * 4), 0.085, 24)

@@ -67,7 +67,7 @@ def number_questions(s: Session) -> list[Question]:
 
     if m["mrr"] > 0:
         add("mrr", "What's your MRR right now?", m["mrr"], "$", "MRR = paying customers x monthly price, plus contracts.")
-        add("arr", "And what does that make your ARR?", m["arr"], "$", "ARR = MRR x 12.")
+        add("arr", "What is your ARR?", m["arr"], "$", "ARR = MRR x 12.")
         add("churn", "What's your monthly churn, in percent?", m["churn"] * 100, "%",
             "Churn = share of customers who cancel per month. It's on your `metrics` screen.")
         add("gross_margin", "What's your gross margin, in percent?", m["margin"] * 100, "%",
@@ -359,18 +359,36 @@ def pick(s: Session, n: int, prefer: list[str] = (), numbers: int = 2, calcs: in
     return chosen[:n]
 
 
-def office_hours(s: Session, n: int = 3) -> int:
-    """`quiz`: practise with your advisor. Uses notebook terms you have
-    not mastered yet. Returns how many were right."""
-    g = s.game
-    p = s.profile
-    weak = [t for t in g.notebook if not t.startswith("sh_") and p.term_status(t) != "mastered"]
-    weak.sort(key=lambda t: (t not in p.struggling(), g.rng.random()))
+def practice_terms(s: Session) -> list[str]:
+    """Notebook terms not yet mastered: shaky ones first, then in
+    curriculum order, skipping anything asked in the last three weeks."""
+    g, p = s.game, s.profile
+    weak = [t for t in g.notebook if not t.startswith("sh_") and p.term_status(t) != "mastered"
+            and g.week - g.flag("asked_" + t, -9) >= 3]
+    shaky = set(p.struggling())
+    weak.sort(key=lambda t: (t not in shaky, p.term_status(t) != "practiced", g.rng.random()))
+    return weak
+
+
+def practice_question(s: Session, term: str) -> Question:
     by_term = {q.term: q for q in concept_questions() + calc_questions(s) + number_questions(s)}
-    right = 0
-    for term in weak[:n]:
-        q = by_term.get(term)
-        if q is None or (g.rng.random() < 0.3 and not q.options):
-            q = definition_question(s, term)
-        right += ask(s, q, "Advisor")
-    return right
+    q = by_term.get(term)
+    if q is None or (s.profile.terms.get(term, {}).get("ok", 0) >= 1 and s.game.rng.random() < 0.5):
+        q = definition_question(s, term)       # second time round: recall the definition
+    s.game.flags["asked_" + term] = s.game.week
+    return q
+
+
+def question_of_the_week(s: Session) -> None:
+    """One quick question from your mentor at the start of each week.
+    This is the main way seen terms become mastered terms."""
+    terms = practice_terms(s)
+    if not terms:
+        return
+    if ask(s, practice_question(s, terms[0]), "Nora's question of the week"):
+        s.game.energy = min(100, s.game.energy + 1)
+
+
+def office_hours(s: Session, n: int = 3) -> int:
+    """`quiz`: practise with your advisor. Returns how many were right."""
+    return sum(ask(s, practice_question(s, term), "Advisor") for term in practice_terms(s)[:n])

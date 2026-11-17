@@ -120,7 +120,7 @@ def learn_bash(s, lesson_id: str) -> bool:
         body.append(f"   # {text}", style="dim")
     body.append("\n\nWith agents: ", style="bold")
     body.append(lesson.tip)
-    s.io.print(Panel(body, title=f"🖥  Shell skill: {lesson.title}", subtitle=f"nb {lesson_id} · man {lesson_id}",
+    s.io.print(Panel(body, title=f"🖥  Shell skill: {lesson.title}", subtitle=f"nb {lesson_id}" + (f" · man {lesson_id}" if lesson.man else ""),
                      border_style="magenta", title_align="left", subtitle_align="right"))
     return True
 
