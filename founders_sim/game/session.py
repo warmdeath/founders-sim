@@ -37,6 +37,7 @@ class Session:
         self.shell = None           # set by app.py once the shell exists
         self.quiet_learning = False  # tests can silence concept panels
         self.panels_shown = 0        # concept panels printed for the current command line
+        self.deferred: list = []     # concept panels waiting until the command's own output is done
         self.pending_lessons: list[str] = []   # shell lessons to show once the command finishes
 
     # ----------------------------------------------------------- talking
@@ -95,6 +96,16 @@ class Session:
     def path(self, relative: str) -> str:
         return f"{COMPANY}/{relative}"
 
+    def show_later(self, renderable) -> None:
+        """Concept panels are shown AFTER the command's own output, so the
+        result of what you typed is never buried under an explanation."""
+        self.deferred.append(renderable)
+
+    def flush_learning(self) -> None:
+        for renderable in self.deferred:
+            self.io.print(renderable)
+        self.deferred.clear()
+
     def learn_some(self, terms: list[str], limit: int = 2) -> None:
         """Teach at most `limit` new terms at once - never a wall of definitions."""
         shown = 0
@@ -136,12 +147,14 @@ class Session:
         for lesson in self.pending_lessons:
             notebook.learn_bash(self, lesson)
         self.pending_lessons.clear()
+        self.flush_learning()
         if words and words[0] in ("cat", "less", "more", "head", "tail", "grep") and self.shell and self.shell.last_status == 0:
             for needle, terms in FILE_TERMS.items():
                 if needle in line:
                     if needle == "market.md":
                         g.flags["read_market"] = 1
                     self.learn_some(terms, 2)
+        self.flush_learning()
         missions.check_missions(self)
         self.panels_shown = 0
 

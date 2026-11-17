@@ -146,7 +146,8 @@ def write_run(s: Session, run, info: dict) -> None:
               f"Spec: {run.spec_path} (spec score {run.spec_score}/100)",
               f"Agents: {run.agents} x {run.model} model | compute cost: {money(run.cost)} | week {run.week}", "",
               "## Summary (written by the agent - a claim, not a fact)",
-              f"Implemented {run.work_done * 100:.0f}% of the feature. {claim} Ready to merge.", ""]
+              f"Implemented {run.work_done * feature.complexity:.0f} of {feature.complexity} work points "
+              f"({run.work_done * 100:.0f}% of the feature). {claim} Ready to merge.", ""]
     if halluc:
         report += ["## Notes", "- Integrated with the official SDK using `client.auto_sync_all()` for reliability.",
                    "- Edge cases are fully handled.", ""]

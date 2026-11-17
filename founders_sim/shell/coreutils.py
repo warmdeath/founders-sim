@@ -811,6 +811,149 @@ def cmd_tr(ctx: Ctx):
         ctx.out(text.translate(str.maketrans(a, b[:len(a)])))
 
 
+def _sed_address(text: str):
+    """Parse the optional line selector in front of a sed command:
+    '3' (line 3), '2,5' (lines 2-5), '$' (last line), '/regex/'."""
+    import re as _re
+    match = _re.match(r"(\d+|\$)(?:,(\d+|\$))?", text)
+    if match:
+        return ("lines", match.group(1), match.group(2) or match.group(1)), text[match.end():]
+    if text.startswith("/"):
+        end = text.find("/", 1)
+        while end > 0 and text[end - 1] == "\\":
+            end = text.find("/", end + 1)
+        if end < 0:
+            raise UsageError("unterminated address regex")
+        return ("regex", text[1:end], None), text[end + 1:]
+    return None, text
+
+
+def _sed_compile(script: str, extended: bool):
+    """One sed command -> (address, action, data). Supports s/old/new/[gi], d, p."""
+    address, rest = _sed_address(script.strip())
+    rest = rest.strip()
+    if rest[:1] == "s" and len(rest) > 1:
+        delim = rest[1]
+        parts, current, i = [], "", 2
+        while i < len(rest) and len(parts) < 2:
+            if rest[i] == "\\" and i + 1 < len(rest):
+                current += rest[i + 1] if rest[i + 1] == delim else rest[i:i + 2]
+                i += 2
+            elif rest[i] == delim:
+                parts.append(current)
+                current = ""
+                i += 1
+            else:
+                current += rest[i]
+                i += 1
+        if len(parts) < 2:
+            raise UsageError("unterminated `s' command")
+        flags = rest[i:]
+        if flags.strip("gi"):
+            raise UsageError("unknown option to `s'")
+        pattern = parts[0] if extended else _bre_to_python(parts[0])
+        try:
+            regex = re.compile(pattern, re.IGNORECASE if "i" in flags else 0)
+        except re.error:
+            raise UsageError("Invalid regular expression")
+        # sed uses & for "the whole match" and \1 for groups
+        repl = re.sub(r"(?<!\\)&", r"\\g<0>", parts[1]).replace("\\&", "&")
+        return address, "s", (regex, repl, 0 if "g" in flags else 1)
+    if rest in ("d", "p"):
+        return address, rest, None
+    raise UsageError(f"unknown command: `{rest[:1]}'" if rest else "missing command")
+
+
+def cmd_sed(ctx: Ctx):
+    """Stream editor: the classic find-and-replace tool."""
+    args = list(ctx.args)
+    in_place = quiet = extended = False
+    scripts: list[str] = []
+    files: list[str] = []
+    while args:
+        arg = args.pop(0)
+        if arg in ("-i", "--in-place"):
+            in_place = True
+        elif arg == "-n":
+            quiet = True
+        elif arg in ("-E", "-r"):
+            extended = True
+        elif arg == "-e" and args:
+            scripts.append(args.pop(0))
+        elif arg.startswith("-") and len(arg) > 1:
+            ctx.err(f"sed: invalid option -- '{arg[1:]}'")
+            return 1
+        elif not scripts:
+            scripts.append(arg)
+        else:
+            files.append(arg)
+    if not scripts:
+        ctx.err("Usage: sed [OPTION]... {script-only-if-no-other-script} [input-file]...")
+        return 1
+    try:
+        commands = [_sed_compile(part, extended) for script in scripts for part in script.split(";") if part.strip()]
+    except UsageError as exc:
+        ctx.err(f"sed: -e expression #1, char {len(scripts[0])}: {exc}")
+        return 1
+    if in_place and not files:
+        ctx.err("sed: no input files")
+        return 4
+
+    def process(text: str) -> str:
+        lines = text.splitlines()
+        out: list[str] = []
+        for number, line in enumerate(lines, 1):
+            deleted = False
+            for address, action, data in commands:
+                if address is not None:
+                    kind, a, b = address
+                    if kind == "regex":
+                        hit = re.search(a if extended else _bre_to_python(a), line) is not None
+                    else:
+                        lo = len(lines) if a == "$" else int(a)
+                        hi = len(lines) if b == "$" else int(b)
+                        hit = lo <= number <= hi
+                    if not hit:
+                        continue
+                if action == "d":
+                    deleted = True
+                    break
+                if action == "p":
+                    out.append(line)
+                else:
+                    regex, repl, count = data
+                    line = regex.sub(repl, line, count=count)
+            if not deleted and not quiet:
+                out.append(line)
+        return "\n".join(out) + ("\n" if out else "")
+
+    code = 0
+    if not files:
+        if ctx.stdin is None:
+            ctx.err("sed: nothing to read. Give a file, or pipe text in: `cat file | sed 's/a/b/'`")
+            return 1
+        ctx.out(process(ctx.stdin))
+        return 0
+    for path in files:
+        try:
+            text = ctx.fs.read(path, ctx.sh.cwd)
+        except VFSError as exc:
+            ctx.err(f"sed: can't read {path}: {exc.reason}")
+            code = 2
+            continue
+        if in_place:
+            try:
+                ctx.fs.write(path, process(text), ctx.sh.cwd)
+            except VFSError as exc:
+                ctx.err(f"sed: couldn't open temporary file for {path}: {exc.reason}")
+                code = 4
+                continue
+            ctx.sh.on_file_written(ctx.fs.normalize(path, ctx.sh.cwd))
+        else:
+            ctx.out(process(text))
+    return code
+
+
 def cmd_tee(ctx: Ctx):
     try:
         flags, _, files = split_flags(ctx, "a")
@@ -1235,7 +1378,7 @@ def register_coreutils(sh: Shell) -> None:
         ("printf", cmd_printf, "formatted print"), ("grep", cmd_grep, "search text for a pattern"),
         ("wc", cmd_wc, "count lines, words, bytes"), ("sort", cmd_sort, "sort lines"),
         ("uniq", cmd_uniq, "collapse adjacent duplicate lines"), ("cut", cmd_cut, "pick columns"),
-        ("tr", cmd_tr, "translate characters"), ("tee", cmd_tee, "write stdin to a file AND stdout"),
+        ("tr", cmd_tr, "translate characters"), ("sed", cmd_sed, "find and replace text (stream editor)"), ("tee", cmd_tee, "write stdin to a file AND stdout"),
         ("find", cmd_find, "search for files by name/type"), ("xargs", cmd_xargs, "stdin -> arguments"),
         ("seq", cmd_seq, "print a sequence of numbers"), ("basename", cmd_basename, "strip directory"),
         ("dirname", cmd_dirname, "strip last path part"), ("history", cmd_history, "show past commands"),

@@ -160,10 +160,10 @@ _add(Scenario(
            ("NoCodeScrape", "A no-code web scraping tool.", 0.5),
            ("ReviewBot", "An AI bot that reviews pull requests.", 0.6)],
     start_cash=14000, living=250, price0=60, price_unit="$/month average usage bill per customer",
-    price_mult=1.0, wtp=120, base_churn=0.10, min_churn=0.02, cac=140, organic=2.0, viral=0.008,
-    cogs=34, infra=50,
+    price_mult=1.0, wtp=120, base_churn=0.10, min_churn=0.02, cac=170, organic=1.6, viral=0.008,
+    cogs=38, infra=50,
     tam=(1_200_000, 2_900_000_000), sam=(150_000, 360_000_000), som=(5_000, 7_000_000),
-    competitor="DocuMind", bigcorp="CloudCore", profit_mrr=12000, raise_target=800_000,
+    competitor="DocuMind", bigcorp="CloudCore", profit_mrr=16000, raise_target=800_000,
     features=[
         ("accuracy", "Table extraction accuracy", 22, .26, True, "ai",
          "if it gets one number wrong in a table I can't trust any of it"),

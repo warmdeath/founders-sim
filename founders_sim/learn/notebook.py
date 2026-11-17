@@ -76,11 +76,11 @@ def learn(s, term_id: str, silent: bool = False) -> bool:
     if silent or s.quiet_learning:
         return True
     if known_before == "mastered":
-        s.io.print(f"[dim]📓 {term.name} - you've mastered this. (`nb {term_id}` to reread)[/dim]")
+        s.show_later(f"[dim]📓 {term.name} - you've mastered this. (`nb {term_id}` to reread)[/dim]")
         return True
     s.panels_shown += 1
     if s.panels_shown > 2:          # never a wall of definitions: the rest wait in the notebook
-        s.io.print(f"[dim]📓 Also new in your notebook: [/dim][term]{term.name}[/term][dim] - read it with `nb {term_id}`[/dim]")
+        s.show_later(f"[dim]📓 Also new in your notebook: [/dim][term]{term.name}[/term][dim] - read it with `nb {term_id}`[/dim]")
         return True
     body = Text()
     body.append(term.definition + "\n\n")
@@ -94,7 +94,7 @@ def learn(s, term_id: str, silent: bool = False) -> bool:
     if related:
         body.append("\nRelated: " + ", ".join(related), style="dim")
     title = f"📓 New concept: {term.name}" if known_before == "unseen" else f"📓 Again: {term.name}"
-    s.io.print(Panel(body, title=title, subtitle=f"saved to notebook · nb {term_id}",
+    s.show_later(Panel(body, title=title, subtitle=f"saved to notebook · nb {term_id}",
                      border_style="cyan", title_align="left", subtitle_align="right"))
     return True
 
@@ -120,7 +120,7 @@ def learn_bash(s, lesson_id: str) -> bool:
         body.append(f"   # {text}", style="dim")
     body.append("\n\nWith agents: ", style="bold")
     body.append(lesson.tip)
-    s.io.print(Panel(body, title=f"🖥  Shell skill: {lesson.title}", subtitle=f"nb {lesson_id}" + (f" · man {lesson_id}" if lesson.man else ""),
+    s.show_later(Panel(body, title=f"🖥  Shell skill: {lesson.title}", subtitle=f"nb {lesson_id}" + (f" · man {lesson_id}" if lesson.man else ""),
                      border_style="magenta", title_align="left", subtitle_align="right"))
     return True
 
@@ -162,7 +162,7 @@ def notebook_overview(s):
     for i, key in enumerate(g.notebook, 1):
         if key.startswith("sh_"):
             lesson = LESSONS[key[3:]]
-            table.add_row(str(i), f"[cmd]{lesson.id}[/cmd]", "shell", STATUS_MARK[s.profile.bash_status(lesson.id)])
+            table.add_row(str(i), f"[cmd]{lesson.title}[/cmd]", "shell", STATUS_MARK[s.profile.bash_status(lesson.id)])
         else:
             term = TERMS[key]
             table.add_row(str(i), f"[term]{term.name}[/term]", term.category, STATUS_MARK[s.profile.term_status(key)])

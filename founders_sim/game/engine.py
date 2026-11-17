@@ -83,7 +83,7 @@ def price_conversion(g: Game) -> float:
 def monthly_churn(g: Game) -> float:
     sc = scenario_of(g)
     ratio = g.price / max(wtp_now(g), 0.01)
-    churn = (sc.base_churn * (1 + 0.05 * (g.level - 1)) * (1.35 - fit(g) / 100) + 0.012 * g.prod_bugs
+    churn = (sc.base_churn * (1 + 0.08 * (g.level - 1)) * (1.35 - fit(g) / 100) + 0.012 * g.prod_bugs
              + 0.10 * max(0.0, ratio - 1) - 0.03 * moat(g) + 0.03 * g.competitor * (1 - moat(g)))
     return clamp(churn, sc.min_churn, 0.6)
 
@@ -93,7 +93,7 @@ def paid_cac(g: Game, budget: float | None = None) -> float:
     more competition all make it more expensive."""
     sc = scenario_of(g)
     budget = g.ad_budget if budget is None else budget
-    cac = sc.cac * (1 + 0.08 * (g.level - 1)) * (1.7 - fit(g) / 100) * (1 + budget / (sc.cac * 45)) * (1 + 0.8 * g.competitor)
+    cac = sc.cac * (1 + 0.12 * (g.level - 1)) * (1.7 - fit(g) / 100) * (1 + budget / (sc.cac * 45)) * (1 + 0.8 * g.competitor)
     if has_hire(g, "marketer"):
         cac *= 0.8
     return cac / max(price_conversion(g), 0.05)
@@ -156,7 +156,8 @@ def metrics(g: Game) -> dict:
     m["cogs_pc"] = cogs_per_customer(g)
     costs = weekly_costs(g)
     recent = g.history[-4:]
-    avg_compute = (g.compute_total / max(1, g.week - 1)) if g.week > 1 else 0.0
+    last = g.history[-8:]                      # agent compute varies a lot week to week: use an average
+    avg_compute = sum(w.compute for w in last) / len(last) if last else 0.0
     m["costs_week"] = sum(costs.values()) + avg_compute
     m["costs_month"] = m["costs_week"] * W
     m["cogs_month"] = costs["cogs"] * W
@@ -277,8 +278,8 @@ def expected_signups(g: Game) -> dict[str, float]:
 
 
 def win_factor(g: Game) -> float:
-    """Run 1 has easier win targets."""
-    return {1: 0.6, 2: 0.8}.get(g.level, 1.0)
+    """Win targets scale with the run: easier in runs 1-2, higher in 4-5."""
+    return {1: 0.6, 2: 0.8, 3: 1.0, 4: 1.25}.get(g.level, 1.5)
 
 
 def advance_week(s: Session) -> list[str]:
@@ -329,7 +330,7 @@ def advance_week(s: Session) -> list[str]:
         g.bump("covenant_breaches")
 
     # 4. production incidents
-    if g.prod_bugs > 0.5 and g.rng.random() < min(0.6, 0.07 * g.prod_bugs):
+    if live(g) and g.customers >= 1 and g.prod_bugs > 0.5 and g.rng.random() < min(0.6, 0.07 * g.prod_bugs):
         lost = g.customers * g.rng.uniform(0.03, 0.08)
         g.customers -= lost
         g.reputation = max(0, g.reputation - 3)
@@ -369,7 +370,7 @@ def advance_week(s: Session) -> list[str]:
     g.history.append(Week(g.week, round(g.cash, 2), round(mrr(g), 2), round(g.customers, 1), round(new, 1),
                           round(churned, 1), round(revenue, 2), round(booked_costs, 2), g.ad_budget,
                           round(costs["cogs"], 2), round(fit(g), 1), round(quality(g), 1),
-                          round(g.reputation, 1), round(g.energy, 1)))
+                          round(g.reputation, 1), round(g.energy, 1), round(g.compute_week, 2)))
     lines.insert(0, f"Week {g.week} closed: revenue {money(revenue)}, costs {money(booked_costs)}, "
                     f"cash {money(cash_before)} → {money(g.cash)}. "
                     f"Customers +{new:.0f} / -{churned:.0f} = {g.customers:.0f}.")

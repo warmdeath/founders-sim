@@ -228,6 +228,7 @@ class Week:
     quality: float
     reputation: float
     energy: float
+    compute: float = 0.0        # agent compute spent that week
 
 
 @dataclass

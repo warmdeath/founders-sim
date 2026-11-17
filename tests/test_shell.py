@@ -122,3 +122,32 @@ def test_tab_completion_candidates():
     assert "investors/angel_rossi.txt" in comp.candidates("pitch ")[1]
     assert "customers/leads/maria.txt" in comp.candidates("interview customers/leads/m")[1]
     assert "wc " in comp.candidates("ls | w")[1]
+
+
+def test_sed_like_the_real_thing():
+    out = sh("printf 'TODO one\\nkeep cat cat\\nTODO two\\n' > f.md", "sed 's/cat/dog/' f.md", "sed -n '2p' f.md",
+             "sed -i '/^TODO/d' f.md", "cat f.md", "sed -i 's/cat/dog/g; s/keep/kept/' f.md", "cat f.md",
+             "echo hello | sed 's/l/L/g'", "echo a-b | sed -E 's/(a)-(b)/\\2-\\1/'", "sed 's/x' f.md", "sed 's/a/b/' nope")
+    lines = out.splitlines()
+    assert lines[:3] == ["TODO one", "keep dog cat", "TODO two"]
+    assert lines[3:7] == ["keep cat cat", "keep cat cat", "kept dog dog", "heLLo"]
+    assert lines[7] == "b-a"
+    assert "unterminated `s' command" in out and "sed: can't read nope: No such file or directory" in out
+
+
+def test_spec_reuse_must_be_adapted():
+    from tests.helpers import GOOD_SPEC
+    from founders_sim.vfs import COMPANY
+    s = make_session()
+    s.game.idea = 0
+    run(s, "interview maria luca", "spec new flashcards")
+    s.fs.write(f"{COMPANY}/product/specs/flashcards.md",
+               GOOD_SPEC.format(title="Auto-flashcards", key="flashcards", note="customers/notes/maria.md"))
+    out = run(s, "spec check product/specs/flashcards.md", "spec new offline --from product/specs/flashcards.md",
+              "head -n 2 product/specs/offline.md", "spec check product/specs/offline.md")
+    assert "Score: 100/100" in out and "feature: offline" in out and "Copy:" in out and "Score: 35/100" in out
+    out = run(s, "sed -i 's/flashcards/offline/g; s/maria.md/luca.md/; s/data model/local cache/; s/user-facing screen/sync queue/; "
+                 "s/onboarding and settings/the reader/; s/main flow in under two minutes/reader with wifi off/; "
+                 "s/Invalid input shows a clear error/Edits made offline sync later/; s/one thousand records/a full course/' "
+                 "product/specs/offline.md", "spec check product/specs/offline.md")
+    assert "Copy:" not in out and "Score: 100/100" in out

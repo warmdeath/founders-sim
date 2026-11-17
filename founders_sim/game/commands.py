@@ -68,6 +68,7 @@ def maybe_win(s: Session) -> None:
     g = s.game
     if not g.flags.pop("new_win", 0) or g.ended:
         return
+    s.flush_learning()
     path = g.won_paths[-1]
     text = {"profitable": f"{g.company} is PROFITABLE: eight straight weeks of revenue above costs. You answer to nobody.",
             "raised": f"You closed a priced funding round for {g.company}. Professional investors bet real money on you."}[path]
@@ -192,6 +193,7 @@ def cmd_next(ctx: Ctx):
     if not g.ended:
         learn_some(s, ["revenue", "costs", "cash", "burn_rate", "runway", "iteration"], 1)
         situations.weekly_terms(s, 2 - min(2, s.panels_shown))
+        s.flush_learning()
         if g.week >= 3 and not g.flags.get("new_win"):
             quiz.question_of_the_week(s)
     maybe_win(s)
@@ -318,7 +320,7 @@ def cmd_sales(ctx: Ctx):
 def cmd_spec(ctx: Ctx):
     s, g = S(ctx), S(ctx).game
     args = ctx.args
-    if args[:1] == ["new"] and len(args) == 2:
+    if args[:1] == ["new"] and (len(args) == 2 or (len(args) == 4 and args[2] == "--from")):
         key = key_of(args[1])
         feature = g.features.get(key)
         if feature is None or not feature.known:
@@ -329,11 +331,22 @@ def cmd_spec(ctx: Ctx):
         path = f"{COMPANY}/product/specs/{key}.md"
         if ctx.fs.exists(path):
             return ctx.fail(f"product/specs/{key}.md already exists. Edit it: nano product/specs/{key}.md")
+        if len(args) == 4:                      # reuse the structure of a spec you already wrote
+            source = ctx.fs.read(args[3], ctx.sh.cwd)
+            body = source.split("\n## ", 1)[1] if "\n## " in source else ""
+            ctx.fs.write(path, f"# Spec: {feature.title}\nfeature: {key}\n\n## {body}")
+            s.good(f"Created product/specs/{key}.md from {args[3]}.")
+            s.note("It still describes the OTHER feature. Rewrite the goal, context, tasks and tests for this one "
+                   f"(`nano product/specs/{key}.md`, or `sed -i 's/old words/new words/' product/specs/{key}.md`).\n"
+                   "An agent given a copied spec builds the wrong thing - `spec check` will tell you.")
+            s.learn("spec")
+            return 0
         ctx.fs.write(path, agents.spec_template(feature))
         s.good(f"Created product/specs/{key}.md - a template with five sections.")
         s.note("Replace each TODO line with real content: `nano product/specs/" + key + ".md`, or append lines with\n"
                "  echo '- imports a 20-page PDF in under 10 seconds' >> product/specs/" + key + ".md\n"
-               "(appended lines land in the LAST section, so nano is easier). Then: spec check product/specs/" + key + ".md")
+               "(appended lines land in the LAST section, so nano is easier). Then: spec check product/specs/" + key + ".md\n"
+               "Later specs go faster: `spec new <key> --from product/specs/" + key + ".md` reuses this one's structure.")
         s.learn("spec", "prompt")
         return 0
     if args[:1] == ["check"] and len(args) == 2:
@@ -359,7 +372,7 @@ def cmd_spec(ctx: Ctx):
         specs = [n.name for n in ctx.fs.listdir(f"{COMPANY}/product/specs")]
         ctx.line("\n".join(specs) if specs else "no specs yet. Start one: spec new <feature key from product/roadmap.md>")
         return 0
-    return usage(ctx, "spec new <feature> | spec check <file>")
+    return usage(ctx, "spec new <feature> [--from <existing spec>] | spec check <file>")
 
 
 def find_run(ctx: Ctx, arg: str):
@@ -396,9 +409,15 @@ def cmd_agent(ctx: Ctx):
         if run is None:
             return 1
         g.flags["best_spec"] = max(g.flag("best_spec"), run.spec_score)
-        s.say(f"[title]{run.id}[/title]: {n_agents} {model} agent(s) worked on [bold]{g.features[run.feature].title}[/bold] "
-              f"(spec score {run.spec_score}/100, compute {money(run.cost)}).")
-        s.say(f"  Agent says: \"Implemented {run.work_done * 100:.0f}% of the feature. Ready to merge.\"")
+        feature = g.features[run.feature]
+        s.say(f"[title]{run.id}[/title]: {n_agents} {model} agent(s) worked on [bold]{feature.title}[/bold] "
+              f"(spec score {run.spec_score}/100). Cost: {money(run.cost)} of compute, {g.flag('last_run_hours'):g}h of your time.")
+        total = min(1.0, feature.progress + run.work_done)
+        s.say(f"  Agent says: \"{'Feature complete' if total >= 0.999 else f'Feature {total * 100:.0f}% complete'}. "
+              f"All good. Ready to merge.\"")
+        if total < 0.999:
+            s.note("  One agent can only do so much in one run. After merging, run the spec again to finish it - "
+                   "or use a bigger model / more agents (`man agent`).")
         s.note(f"  Evidence is in agents/runs/{run.id}/ (report.md, tests.log, diff.patch). "
                f"Next: `review {run.id}` then `merge {run.id}`.")
         if run.spec_score < 50:
@@ -414,7 +433,9 @@ def cmd_agent(ctx: Ctx):
         return 0
     if sub == "models":
         for name, (cost, cap, bugs, hall) in agents.MODELS.items():
-            ctx.line(f"{name:<6} {money(cost)}/agent  capacity {cap} pts  bug rate {bugs}/10pts  hallucination risk {hall * 100:.0f}%")
+            ctx.line(f"{name:<6} ${cost} per work point   up to {cap} points per agent per run   "
+                     f"{bugs} bugs per 10 points   hallucination risk {hall * 100:.0f}%")
+        ctx.line("Feature sizes (work points) are in product/roadmap.md. A good spec raises what a run gets done.")
         learn_some(s, ["model_tier", "compute_budget"], 1)
         return 0
     if sub == "status":
@@ -450,7 +471,7 @@ def cmd_review(ctx: Ctx):
     if found:
         s.good(f"{'Deep' if deep else 'Quick'} review of {run.id}: found and fixed {len(found)} problem(s):")
         for bug in found:
-            s.say(f"    [{bug.kind}] {bug.text}")
+            s.say(f"    ({bug.kind}) {bug.text}", markup=False)
     else:
         s.say(f"{'Deep' if deep else 'Quick'} review of {run.id}: found nothing.")
     s.note("  A quick review mostly catches what the tests already show. `--deep` reads the code (more hours, finds more)."
@@ -790,8 +811,8 @@ GAME_MAN = {
     "sales": ("sales - the B2B pipeline", "sales | sales <deal>",
               "`sales` lists deals. `sales <deal>` spends hours to move one deal a stage forward "
               "(lead → discovery → demo → pilot → procurement → won). Bigger customers need more weeks between steps."),
-    "spec": ("spec - write specifications for agents", "spec | spec new <feature> | spec check <file>",
-             "`spec new` creates a template in product/specs/. Fill in the five sections (Goal, Context, Tasks, "
+    "spec": ("spec - write specifications for agents", "spec | spec new <feature> [--from <existing spec>] | spec check <file>",
+             "`spec new` creates a template in product/specs/ (`--from` copies the structure of a spec you already wrote - then adapt it). Fill in the five sections (Goal, Context, Tasks, "
              "Acceptance tests, Out of scope) with nano or echo >>. `spec check` scores it 0-100 and says what is missing. "
              "Spec quality drives how much agents get done and how many bugs they create."),
     "agent": ("agent - direct your AI coding agents", "agent run <spec> [--agents N] [--model fast|smart] | agent status | agent models | agent discard <run>",

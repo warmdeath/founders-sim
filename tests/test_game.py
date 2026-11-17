@@ -145,7 +145,8 @@ def test_agent_run_review_merge_cycle():
     cash = g.cash
     out = run(s, "agent run product/specs/flashcards.md --model smart --agents 2")
     r = g.runs[0]
-    assert g.cash == cash - 280 and r.agents == 2 and r.model == "smart"
+    assert r.cost == agents.run_cost("smart", 2, r.work_done * g.features["flashcards"].complexity)
+    assert g.cash == cash - r.cost and r.agents == 2 and r.model == "smart" and g.hours < 50 - 3
     assert "run_001" in out
     for name in ("report.md", "tests.log", "diff.patch"):
         assert s.fs.is_file(f"{COMPANY}/agents/runs/run_001/{name}")

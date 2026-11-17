@@ -166,8 +166,10 @@ def launch(s: Session) -> bool:
     if not s.spend_hours(8, "a launch"):
         return False
     f = engine.fit(g)
-    base = (15 + 1.5 * g.reputation + 0.05 * g.audience) * (sc.organic / 4)
-    wave = 0.5 * base * (0.25 + f / 60) * engine.price_conversion(g)
+    # a launch is worth several weeks of normal organic signups, more if people already know you
+    weekly = engine.expected_signups(g)["organic"]
+    wave = max(2.0, weekly * (3 + g.reputation / 15 + g.audience / 400)) * (0.6 if f < 45 else 1.0)
+    del sc
     g.customers += wave
     g.flags["launch_week"] = g.week
     g.launched = True

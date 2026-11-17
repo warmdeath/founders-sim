@@ -339,6 +339,23 @@ L("xargs", "xargs - output as arguments", 7,
   _man("xargs - build and execute command lines from standard input", "xargs [COMMAND [ARG]...]",
        "Read items from standard input and execute COMMAND with them appended as arguments."))
 
+L("sed", "sed - find and replace", 7,
+  "The 'stream editor'. Its famous use is find-and-replace: `sed 's/old/new/' file` prints the file with the first 'old' on each line replaced. Add `g` to replace every occurrence, `-i` to change the file itself instead of printing.",
+  [("sed 's/TODO/DONE/' notes.md", "print with replacements (file unchanged)"),
+   ("sed -i 's/feature: offline/feature: mobile_sync/' product/specs/mobile_sync.md", "-i edits the file in place"),
+   ("sed -i 's/maria/luca/g' spec.md", "g = every occurrence on each line"),
+   ("sed -n '/## Tasks/p' spec.md", "-n ... p prints only matching lines"), ("sed '/TODO/d' spec.md", "d deletes matching lines"),
+   ("sed -n '2,5p' file", "print only lines 2 to 5")],
+  "sed -i is how small, exact edits get made without opening an editor - agents use it all the time. Because it changes files with no undo, read the command twice (or run it without -i first to preview) before you approve it.",
+  "sed 's/TODO/DONE/' product/specs/<key>.md",
+  _man("sed - stream editor for filtering and transforming text", "sed [-n] [-i] [-E] SCRIPT [FILE]...",
+       "Apply SCRIPT to each line of the input and print the result. Supported commands: s/REGEX/REPLACEMENT/[g][i], d (delete), p (print). "
+       "A command may be preceded by an address: a line number, a range N,M, $ (last line) or /REGEX/. Separate commands with ;",
+       [("-i", "edit files in place (no backup, no undo)"), ("-n", "suppress automatic printing; use with p"),
+        ("-E", "use extended regular expressions"), ("-e SCRIPT", "add a script (may be repeated)")],
+       [("sed 's/cat/dog/g' pets.txt", "replace every cat with dog"), ("sed -i '/^TODO/d' spec.md", "delete lines starting with TODO"),
+        ("sed -n '1,3p' file", "like head -n 3")]))
+
 ORDER = list(LESSONS)
 
 # Extra man pages for commands that have no lesson of their own.

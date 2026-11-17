@@ -20,10 +20,12 @@ from .session import Session, money
 from . import engine
 
 MODELS = {
-    # name: (cost per agent, work points per agent, bugs per 10 points, hallucination chance)
-    "fast": (45, 8, 1.3, 0.38),
-    "smart": (140, 12, 0.65, 0.16),
+    # name: (compute $ per work point, work points one agent can do in a run,
+    #        bugs per 10 points, hallucination chance)
+    "fast": (5, 22, 1.3, 0.38),
+    "smart": (11, 34, 0.65, 0.16),
 }
+MIN_RUN_HOURS = 3      # briefing agents and reading what they did takes time, however small the job
 
 UPGRADES = {
     # id: (title, hours, cash, requires, term, what it does)
@@ -144,16 +146,43 @@ def score_spec(s: Session, text: str, feature_key: str = "") -> dict:
     judge(10, bool(sec.get("Out of scope")), "Out of scope: stated - prevents over-building.",
           "Out of scope: missing - agents love to add things nobody asked for.")
     feature = g.features.get(feature_key)
+    # evidence = an interview note in which a customer talks about THIS feature (or their quote)
+    about = [f"customers/notes/{lead.key}.md" for lead in g.leads.values()
+             if lead.interviewed and feature_key in lead.reveals]
     evidence = bool(feature and feature.revealed and
-                    (any("customers/notes" in p for p in real) or (feature.quote[:25].lower() in text.lower())))
+                    (any(p.endswith(a) for p in real for a in about) or feature.quote[:25].lower() in text.lower()))
     judge(10, evidence, "Evidence: built on a need customers actually voiced.",
-          "Evidence: nothing links this to what customers said (reference an interview note about this need).")
+          "Evidence: nothing links this to what customers said. Point Context at a note where someone asks for THIS "
+          "(find it: grep -il '" + (feature.title.split()[0].lower() if feature else "keyword") + "' customers/notes/*).")
+    # a spec copied from another feature and not adapted describes the WRONG feature
+    mine = {line for lines in sec.values() for line in lines}
+    try:
+        others = s.fs.listdir(s.path("product/specs"))
+    except Exception:
+        others = []
+    for other in others:
+        other_text = getattr(other, "content", "")
+        if spec_feature(other_text, other.name) == feature_key or len(mine) < 4:
+            continue
+        theirs = {line for lines in parse_spec(other_text).values() for line in lines}
+        if len(mine & theirs) >= 0.7 * len(mine):
+            score = min(score, 35)
+            notes.append(("bad", f"Copy: most of this text is identical to {other.name}. It describes another feature - "
+                                 "adapt the goal, tasks and tests or the agent will rebuild that one."))
+            break
     return {"score": min(100, score), "notes": notes, "tasks": len(tasks), "tests": len(tests),
             "context": bool(real), "sections": sec}
 
 
-def run_cost(model: str, agents: int) -> float:
-    return MODELS[model][0] * agents
+def run_cost(model: str, agents: int, points: float) -> float:
+    """Compute is billed by tokens, so it grows with the WORK done. Each
+    extra parallel agent re-reads the project, adding ~15% overhead."""
+    return max(20.0, round(MODELS[model][0] * points * (1 + 0.15 * (agents - 1))))
+
+
+def run_hours(points: float, agents: int, planning: bool) -> float:
+    """Your time: briefing, answering questions, reading the result."""
+    return round(2 + points / 2.5 + 0.5 * (agents - 1) + (0.5 if planning else 0), 1)
 
 
 def start_run(s: Session, spec_path: str, agents: int, model: str) -> AgentRun | None:
@@ -174,17 +203,6 @@ def start_run(s: Session, spec_path: str, agents: int, model: str) -> AgentRun |
         s.bad(f"{pending[0].id} for this feature is still waiting. `review`/`merge` it or `agent discard {pending[0].id}`.")
         return None
     info = score_spec(s, text, key)
-    cost = run_cost(model, agents)
-    hours = 3 + 1.0 * (agents - 1) + (0.5 if g.has("planning") else 0)
-    if g.cash < cost:
-        s.bad(f"This run costs {money(cost)} of compute and you have {money(g.cash)}.")
-        return None
-    if not s.spend_hours(hours, "briefing and supervising the agents"):
-        return None
-    s.pay(cost, "compute")
-    g.compute_week += cost
-    g.compute_total += cost
-
     _, capacity, bug_rate, halluc = MODELS[model]
     spec = info["score"] / 100
     tasks = max(1, info["tasks"])
@@ -194,6 +212,25 @@ def start_run(s: Session, spec_path: str, agents: int, model: str) -> AgentRun |
     remaining = 1 - feature.progress
     work = min(remaining, throughput / feature.complexity)
     points = work * feature.complexity
+    hours = run_hours(points, agents, g.has("planning"))
+    if g.hours < MIN_RUN_HOURS:
+        s.spend_hours(MIN_RUN_HOURS, "briefing and supervising the agents")
+        return None
+    if hours > g.hours:                                      # not enough of YOUR time to supervise it all
+        points = max(1.0, (g.hours - 2 - 0.5 * (agents - 1) - (0.5 if g.has("planning") else 0)) * 2.5)
+        work = points / feature.complexity
+        hours = g.hours
+        s.note(f"You only had {g.hours:g}h left to supervise, so the agents stopped early. "
+               "They continue from here on the next run.")
+    cost = run_cost(model, agents, points)
+    if g.cash < cost:
+        s.bad(f"This run would cost about {money(cost)} of compute and you have {money(g.cash)}.")
+        return None
+    g.hours -= hours
+    s.pay(cost, "compute")
+    g.compute_week += cost
+    g.compute_total += cost
+    g.flags["last_run_hours"] = hours
 
     expected = points / 10 * bug_rate * (1.7 - 1.1 * spec) * (1 + g.debt / 60)
     if g.has("planning"):
@@ -317,8 +354,10 @@ def merge_run(s: Session, run: AgentRun) -> bool:
             s.note("Your product is live: people can now sign up. Watch `metrics` after each `next`.")
     else:
         s.good(f"Merged. '{feature.title}' is {feature.progress * 100:.0f}% built - run agents on the spec again to finish it.")
+    if run.review == "none":
+        s.note("(Merged without review: whatever the agent got wrong is now in the product. "
+               "You'll find out when customers do.)")
     if left:
-        s.note(f"({len(left)} undiscovered problem(s) went live with it. You'll find out when customers do.)")
         s.learn("bug")
     s.learn("merge", "tech_debt")
     return True

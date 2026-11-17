@@ -180,6 +180,7 @@ def finish_run(s: Session) -> None:
     """Show the debrief and update the persistent profile."""
     g = s.game
     p = s.profile
+    s.flush_learning()
     m = engine.metrics(g)
     title, won, story = ENDINGS[g.ended]
     payout = money(g.flag("exit_payout"))
