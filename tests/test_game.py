@@ -474,7 +474,7 @@ def test_expansion_segment_opens_mid_game():
     for key in ("reminders", "bank_sync", "accounting_export", "multi_user"):
         ship(s, key)
     assert "acc_rita" not in g.leads and not g.features["multi_client"].known
-    g.customers = 60
+    g.customers = 90
     out = run(s, "next", "ls customers/leads", "interview acc_rita", "cat product/roadmap.md")
     assert g.flag("expansion_open") and "acc_rita.txt" in out and "new customer segment" in out
     assert g.features["multi_client"].revealed and "asked for by your new segment" in out

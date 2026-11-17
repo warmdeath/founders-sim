@@ -65,6 +65,7 @@ def downturn(s):
 
 def agent_accident(s):
     g = s.game
+    g.flags["agent_accident_week"] = g.week
     if g.has("sandbox"):
         s.mail("Agent supervisor log", "Blocked: destructive command",
                "An agent attempted `DROP TABLE users` on what it believed was a test database. It was production.\n"
@@ -211,7 +212,8 @@ EVENTS = [
     ("api_price_hike", True, 2, lambda g: engine.live(g) and g.cogs_mult < 1.5, api_price_hike),
     ("bigcorp_bundle", True, 2, lambda g: g.level >= 2 and g.week > 20 and not g.flag("ev_bigcorp_bundle"), bigcorp_bundle),
     ("downturn", True, 2, lambda g: g.level >= 2 and g.week > 12 and not g.flag("downturn"), downturn),
-    ("agent_accident", True, 3, lambda g: engine.live(g) and g.customers >= 10 and g.flag("agent_accidents") < 2, agent_accident),
+    ("agent_accident", True, 3, lambda g: engine.live(g) and g.customers >= 10 and g.flag("agent_accidents") < 2
+     and g.week - g.flag("agent_accident_week", -99) >= 12, agent_accident),
     ("security_scare", True, 3, lambda g: g.debt > 45 and engine.live(g), security_scare),
     ("surprise_bill", True, 1, lambda g: g.level >= 2 and g.flag("ev_surprise_bill") < 2, surprise_bill),
     ("customer_ultimatum", True, 2, lambda g: bool(engine.won_deals(g)) and not g.flag("ev_customer_ultimatum"), customer_ultimatum),

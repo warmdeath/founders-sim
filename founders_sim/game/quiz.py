@@ -98,7 +98,7 @@ def calc_questions(s: Session) -> list[Question]:
     g = s.game
     rng = g.rng
     pre = rng.choice([1.5, 2, 3, 4, 6, 8]) * 1e6
-    inv = rng.choice([0.25, 0.5, 1, 1.5, 2]) * 1e6
+    inv = pre * rng.choice([0.1, 0.125, 0.2, 0.25])      # a round usually sells 10-25% of the company
     m = engine.metrics(g)
     own = m["founder_pct"] * 100
     sell = rng.choice([10, 15, 20, 25])
