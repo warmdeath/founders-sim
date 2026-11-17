@@ -313,6 +313,28 @@ def definition_question(s: Session, term_id: str) -> Question:
                     explain=f"{term.name}: {term.why}")
 
 
+def why_question(s: Session, term_id: str) -> Question:
+    """Auto-generated: 'why does X matter?' - tests understanding, not
+    just recognising the definition."""
+    term = TERMS[term_id]
+    pool = [t for t in TERMS.values() if t.id != term_id and t.tier == term.tier]
+    s.game.rng.shuffle(pool)
+    wrong = [t.why for t in pool[:3]]
+    return Question(term_id, f"Why does {term.name.split(' (')[0]} matter?", options=[term.why, *wrong],
+                    explain=f"{term.name}: {term.definition}")
+
+
+def example_question(s: Session, term_id: str) -> Question:
+    """Auto-generated: which situation in YOUR company is an example of X?"""
+    from ..learn.notebook import example_for
+    term = TERMS[term_id]
+    pool = [t for t in TERMS.values() if t.id != term_id and t.tier == term.tier and "{" in t.example]
+    s.game.rng.shuffle(pool)
+    wrong = [example_for(s, t) for t in pool[:3]]
+    return Question(term_id, f"Which of these describes {term.name.split(' (')[0]} in your company?",
+                    options=[example_for(s, term), *wrong], explain=term.definition)
+
+
 def ask(s: Session, q: Question, speaker: str = "") -> bool:
     """Put one question to the player. Returns True if answered correctly."""
     g = s.game
@@ -394,8 +416,12 @@ def practice_terms(s: Session) -> list[str]:
 def practice_question(s: Session, term: str) -> Question:
     by_term = {q.term: q for q in concept_questions() + calc_questions(s) + number_questions(s)}
     q = by_term.get(term)
-    if q is None or (s.profile.terms.get(term, {}).get("ok", 0) >= 1 and s.game.rng.random() < 0.5):
-        q = definition_question(s, term)       # second time round: recall the definition
+    known = s.profile.terms.get(term, {}).get("ok", 0)
+    if q is None or (known >= 1 and s.game.rng.random() < 0.5):
+        # first time: recognise the definition; later: explain why it matters or spot it in your company
+        maker = definition_question if known == 0 else s.game.rng.choice(
+            [definition_question, why_question, example_question])
+        q = maker(s, term)
     s.game.flags["asked_" + term] = s.game.week
     return q
 

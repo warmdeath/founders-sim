@@ -23,6 +23,7 @@ class Term:
     example: str
     related: list[str]
     needs: list[str]    # terms that should be learned first
+    deeper: str = ""    # benchmarks, common mistakes, practice (see DEEPER below)
 
 
 TIERS = {
@@ -1020,3 +1021,147 @@ ORDER = list(TERMS)          # curriculum order = definition order above
 
 def terms_in_tier(tier: int) -> list[Term]:
     return [t for t in TERMS.values() if t.tier == tier]
+
+
+# ------------------------------------------------------------ going deeper
+# Extra depth for terms where a definition is not enough: real-world
+# benchmarks, common mistakes, and how professionals actually use them.
+# Shown in the Notebook entry (`nb <term>`), not in the first pop-up.
+DEEPER = {
+    "problem": "Good problems are frequent (weekly, not yearly), painful (costs money, time or status) and already "
+               "'solved' badly with a workaround - a spreadsheet, an intern, a habit. The workaround is your real "
+               "competitor and your best evidence.",
+    "customer_interview": "Rules of thumb from 'The Mom Test' (Rob Fitzpatrick): talk about their life, not your idea; ask "
+                          "about specifics in the past, not generics or the future; talk less and listen more. Compliments "
+                          "('great idea!') are noise. Commitments - time, money, an introduction - are signal.",
+    "validation": "Strongest to weakest evidence: they pay (or pre-pay) > they give you time or introductions > they "
+                  "describe the pain unprompted with a recent example > they say they would use it. Only the first "
+                  "three count.",
+    "mvp": "The 'minimum' is about scope, not quality: one job done well. Many famous products began as an MVP that "
+           "was partly manual behind the scenes (a 'concierge' or 'Wizard of Oz' MVP) to test demand before building.",
+    "pivot": "Common pivots: customer segment (same product, different buyer), problem (same customer, different pain), "
+             "platform (a feature becomes the product), business model (e.g. B2C to B2B). Most pivots keep the team "
+             "and what was learned - that is what separates a pivot from starting over.",
+    "pricing": "Common models: flat subscription, per seat (per user), usage-based, tiered (good/better/best), freemium, "
+               "transaction fee. Price to the VALUE the customer gets, not to your cost. A price increase that loses "
+               "fewer than about 1 in 5 customers usually raises revenue.",
+    "burn_rate": "Gross burn = everything you spend in a month. Net burn = gross burn minus revenue. When someone says "
+                 "'burn' without qualification they usually mean net burn - ask if unsure.",
+    "runway": "Founders usually plan 18-24 months of runway after a raise, start the next raise with 9-12 months left, "
+              "and treat 6 months as an emergency. Recompute it every month: burn changes as you hire and grow.",
+    "default_alive": "Term coined by Paul Graham (2015). The test: assume expenses stay as they are and revenue keeps "
+                     "growing at the rate of the last few months - do you reach profitability before the money runs out?",
+    "agent": "Typical agent tools: read and edit files, run shell commands, search the codebase, browse documentation. "
+             "Good agents plan, act in small steps, run tests, and report. They fail by losing the thread in long "
+             "tasks, guessing when context is missing, and claiming success without checking.",
+    "spec": "Industry practice: write specs short (one page), concrete (examples, file paths, numbers) and testable. "
+            "State constraints ('don't change the database schema') as clearly as goals. Many teams keep specs in "
+            "the repository so humans and agents read the same document.",
+    "context": "Context windows are large today (hundreds of thousands of tokens), but bigger is not better: models "
+               "pay less attention to the middle of long contexts, and every token costs money. 'Context engineering' "
+               "means giving the agent exactly the files and facts it needs - no more, no less.",
+    "token": "Rough sizes: one token is about 4 characters of English; a page of text is about 500-700 tokens; code "
+             "uses more tokens per line than prose. Output tokens usually cost several times more than input tokens.",
+    "hallucination": "Common agent hallucinations: invented function names or library options, fake file paths, "
+                     "claims that tests passed, made-up citations. Defences: run the code, run the tests, ask for "
+                     "sources, and give the agent the real documentation in its context.",
+    "code_review": "What reviewers look for: does it do what the spec says, are edge cases handled, are there tests, "
+                   "is anything unsafe (secrets in code, unvalidated input), is it understandable. Reviewing agent "
+                   "code is the same job - with extra suspicion of code that looks right but calls things that don't exist.",
+    "tests": "Kinds: unit tests (one function), integration tests (parts together), end-to-end tests (the whole app "
+             "like a user). A failing test that was written first and then made to pass ('test-driven development') "
+             "is a strong way to give an agent an unambiguous target.",
+    "tech_debt": "Debt is not always bad: shipping a quick version to learn whether customers want it is a good loan. "
+                 "It becomes dangerous when nobody tracks it, nothing tests it, and every new feature is built on top.",
+    "parallel_agents": "In practice teams run parallel agents in separate copies of the repository (git worktrees or "
+                       "branches), each on an independent task, then merge one at a time - so conflicts surface at "
+                       "merge, not silently.",
+    "evals": "An eval is a dataset of inputs with known good outputs plus a way to score answers (exact match, a "
+             "checklist, or another model grading). Run it on every prompt or model change, and track the score "
+             "over time like any other KPI.",
+    "churn": "Benchmarks (rough): consumer subscriptions often lose 5-10% of customers a month; small-business SaaS "
+             "3-5%; enterprise SaaS under 1% a month. Also watch revenue churn, which can differ from customer "
+             "churn when big and small customers leave at different rates.",
+    "mrr": "MRR excludes one-off payments (setup fees, consulting). Founders track its parts: new MRR, expansion MRR, "
+           "churned MRR and contraction MRR. Net new MRR = new + expansion - churned - contraction.",
+    "cac": "'Blended' CAC divides all sales and marketing spend by all new customers; 'paid' CAC counts only "
+           "customers from paid channels. Blended looks better because free customers lower it - investors will ask which one.",
+    "ltv": "The simple formula assumes churn stays constant forever, which overstates LTV for young companies. Many "
+           "investors cap the lifetime at 3-5 years or use measured cohort data instead.",
+    "ltv_cac": "LTV:CAC of 3 is a rule of thumb, not a law. Investors also look at payback (how fast), because a high "
+               "ratio with a 3-year payback can still starve a company of cash.",
+    "gross_margin": "Rough benchmarks: classic SaaS 75-85%; AI-heavy products often 50-60% because of model costs; "
+                    "marketplaces measure margin on their take, not on GMV; hardware 30-50%.",
+    "pmf": "Sean Ellis's test: ask users 'How would you feel if you could no longer use this product?' If 40% or more "
+           "answer 'very disappointed', you probably have product-market fit. Retention curves that flatten (instead "
+           "of falling to zero) are the strongest quantitative sign.",
+    "nrr": "Benchmarks (rough): below 90% is a leaky business; 100-110% is good; 120%+ is excellent and typical of "
+           "the best enterprise software companies. Gross revenue retention (GRR) is the same but ignoring expansion, "
+           "so it can never exceed 100%.",
+    "tam": "Top-down TAM ('the education market is $7 trillion') impresses nobody. Bottom-up TAM - number of possible "
+           "customers x what each would pay per year - shows you know who buys. Investors check that the math is "
+           "yours, not a market-research headline.",
+    "b2b": "In B2B the user, the buyer and the payer are often different people (the employee uses it, a manager "
+           "chooses it, finance pays). Each needs a different argument.",
+    "b2c": "Consumer businesses usually need a cheap, scalable channel - virality, content, app stores, or very "
+           "efficient ads - because low prices leave little room for acquisition cost.",
+    "sales_cycle": "Rough lengths: self-serve minutes; small business days to weeks; mid-market 1-3 months; enterprise "
+                   "6-12 months. Longer cycles need more runway between first contact and first cash.",
+    "moat": "Common moats: network effects, switching costs, economies of scale, brand, proprietary data, regulation "
+            "or licences. 'We are better' or 'we are first' are not moats - they are head starts.",
+    "equity": "Shares are usually split into common (founders, employees) and preferred (investors). A company can "
+              "issue new shares at any time with board approval, which is why ownership percentages change.",
+    "safe": "Created by Y Combinator in 2013. Since 2018 the standard is the 'post-money SAFE': the cap is measured "
+            "after all SAFE money, which makes each SAFE's final percentage easy to compute (amount / cap) - and "
+            "makes the dilution of stacking many SAFEs land entirely on the founders.",
+    "valuation": "Early-stage valuations are set by supply and demand between investors and founders, anchored by "
+                 "comparable deals, the team, traction and market mood - not by formulas. A higher valuation is not "
+                 "always better: it raises the bar for the next round.",
+    "dilution": "Typical dilution per round: pre-seed and seed 10-25%, Series A 15-25%, plus option-pool increases. "
+                "Founders of companies that reach an IPO often own 10-20% in the end - and are happy, because the pie grew.",
+    "cap_table": "Kept in a spreadsheet at first, later in cap-table software. Every SAFE, option grant and share "
+                 "issue must be recorded; mistakes found during due diligence can delay or kill a round.",
+    "term_sheet": "Key sections: economics (amount, valuation, option pool, liquidation preference, anti-dilution) and "
+                  "control (board seats, protective provisions/vetoes, information rights). Most are standard; a "
+                  "lawyer who does startup deals should read yours.",
+    "liquidation_preference": "Market standard in most rounds: 1x non-participating. Preferences above 1x or "
+                              "participation appear mainly in hard markets or troubled companies.",
+    "option_pool": "Pool size is usually justified by a hiring plan: how much equity the next 12-24 months of hires "
+                   "need. Negotiate it down to the plan; an oversized pool is pure dilution for you.",
+    "vesting": "Standard: 4 years with a 1-year cliff, then monthly. 'Acceleration' clauses vest shares early on a "
+               "sale ('single trigger') or on a sale plus being let go ('double trigger').",
+    "board": "Early boards are often 3 seats: two founders and one investor, or one founder, one investor and one "
+             "independent. The board approves budgets, option grants, new rounds and the sale of the company.",
+    "burn_multiple": "Popularised by David Sacks (2020). Rough scale: under 1 amazing, 1-1.5 great, 1.5-2 good, "
+                     "2-3 suspect, over 3 bad. It falls naturally as a company matures.",
+    "income_statement": "The three statements: income statement (did we make a profit over the period?), balance "
+                        "sheet (what do we own and owe at this moment?) and cash-flow statement (where did the cash "
+                        "come from and go?). They are linked: profit flows into equity, cash appears on the balance sheet.",
+    "cash_flow": "The cash-flow statement splits money into operating (running the business), investing (buying "
+                 "equipment, acquisitions) and financing (loans, equity raised, repayments). A startup that is "
+                 "cash-positive only because of financing is still burning.",
+    "debt": "Lenders care about one thing: being repaid. They look at cash flow (can you pay?), collateral (what "
+            "can they take?) and guarantees (who else pays?). Startups without revenue rarely qualify for bank debt "
+            "without a personal guarantee.",
+    "interest": "APR includes some fees and makes loans comparable; the effective cost of revenue-based financing or "
+                "merchant cash advances can be far above their headline 'fee' once you account for how fast you repay.",
+    "rbf": "Example: a $40k advance repaid at 1.25x means $50k total. Repaid within 12 months, that is roughly a 45%+ "
+           "annualised cost; over 24 months, about 25%. Fast growth makes RBF more expensive, not cheaper.",
+    "acquisition": "Common reasons to buy a startup: its revenue and customers, its technology, its team, or to remove "
+                   "a competitor. Price is usually set as a multiple of revenue for strategic buyers - and can be much "
+                   "higher when two buyers compete.",
+    "waterfall": "Order in practice: transaction costs and debt first, then preferred stock (by seniority if rounds "
+                 "differ), then common. Employees' unvested options may be cancelled, converted or accelerated "
+                 "depending on the deal.",
+    "due_diligence": "Typical requests: financial statements and bank records, customer contracts and churn data, the "
+                     "cap table and all equity documents, code and security review, employment contracts and IP "
+                     "assignment. Being organised early saves weeks.",
+    "pitch_deck": "Classic order (variations of the Sequoia template): problem, solution, why now, market size, "
+                  "competition, product, business model, traction, team, financials, the ask. 10-15 slides; "
+                  "investors spend about 3 minutes on a deck they receive by email.",
+    "accelerator": "The best known is Y Combinator (founded 2005). Typical terms: a fixed investment for a set "
+                   "percentage (often 5-10%), three months of mentoring, and a demo day. The network often matters "
+                   "more than the money.",
+}
+for _term_id, _text in DEEPER.items():
+    TERMS[_term_id].deeper = _text

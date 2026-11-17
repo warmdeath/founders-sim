@@ -38,6 +38,7 @@ def term_text(s, term: Term) -> str:
             f"WHAT IT IS\n{term.definition}\n\n"
             f"WHY IT MATTERS\n{term.why}\n\n"
             f"IN YOUR COMPANY (week {s.game.week})\n{example_for(s, term)}\n\n"
+            + (f"GO DEEPER\n{term.deeper}\n\n" if term.deeper else "") +
             f"RELATED: {related or '-'}\n")
 
 
@@ -91,6 +92,8 @@ def learn(s, term_id: str, silent: bool = False) -> bool:
     if added:
         body.append("\n\nBuilds on: " + ", ".join(added) + " (also added to your notebook)", style="dim")
     related = [TERMS[r].name for r in term.related if r in TERMS][:4]
+    if term.deeper:
+        body.append(f"\n\nMore depth (benchmarks, common mistakes): nb {term_id}", style="dim")
     if related:
         body.append("\nRelated: " + ", ".join(related), style="dim")
     title = f"📓 New concept: {term.name}" if known_before == "unseen" else f"📓 Again: {term.name}"

@@ -138,3 +138,19 @@ def test_focus_topics_steer_the_next_run():
     out = run(s, "next", "cat inbox/*what_to_try*")
     assert "personal-guarantee" in out and "startup_loan" in s.game.loan_offers
     assert s.game.investors["vc_seedline"].known
+
+
+def test_generated_questions_have_four_distinct_options():
+    s = make_session()
+    s.game.idea = 0
+    for term in TERMS:
+        for maker in (quiz.definition_question, quiz.why_question, quiz.example_question):
+            q = maker(s, term)
+            assert len(q.options) == 4 and len(set(q.options)) == 4, (term, maker.__name__)
+
+
+def test_deeper_notes_appear_in_the_notebook_file():
+    s = make_session()
+    s.learn("churn")
+    out = run(s, "cat notebook/*churn.md", "nb churn")
+    assert "GO DEEPER" in out and "enterprise SaaS" in out
