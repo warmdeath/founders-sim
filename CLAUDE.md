@@ -15,7 +15,8 @@ Non-negotiables from the spec:
 - The shell is the interface. No numbered menus as the main UI (arrow-key lists only for dialogue choices).
 - Implemented bash commands must match real bash: syntax, flags, error text.
 - Sandboxed: commands touch only the virtual filesystem. The only real files are in `~/.founders_sim/`
-  (profile, save, history), overridable with `FOUNDERS_SIM_HOME`.
+  (profile, save, history), overridable with `FOUNDERS_SIM_HOME`. The one real program the game runs is
+  `git`, from `sync.py`, only inside that folder and only if the player set up sync.
 - Every mechanic teaches its real-world concept the first time it appears and stores it in the Notebook.
   Never a wall of definitions (max two concept panels per command; the rest become one-line notes).
 - Concepts must be accurate; simplifications are stated (in code comments and `REVIEW.md`).
@@ -27,7 +28,7 @@ Non-negotiables from the spec:
 pip install -r requirements.txt
 python3 -m founders_sim            # play (continues a save)
 python3 -m founders_sim --new --seed 3
-python3 -m pytest                  # 70 tests, about 2.5 seconds
+python3 -m pytest                  # 74 tests, about 3 seconds
 ```
 
 Non-interactive smoke test (commands on stdin, no TTY needed):
@@ -43,6 +44,7 @@ founders_sim/
   app.py              entry point: start/load a run, main read-run loop, prompt_toolkit session
   vfs.py              virtual filesystem (Node/File/Dir/VFS), bash-style errors
   save.py             JSON save/load of game + filesystem + shell state
+  sync.py             optional git sync of ~/.founders_sim between computers (pull at start, push on save/quit)
   shell/
     parser.py         tokenizer + recursive-descent parser (quotes, pipes, redirects, for/if)
     interpreter.py    Shell: expansion, globbing, pipelines, redirection, aliases, scripts, hooks
@@ -109,6 +111,9 @@ for files just read, and advances tutorial missions.
 - Win targets come from `engine.win_targets()` - use it rather than recomputing from scenario fields.
 - Concept panels go through `Session.show_later()` and are flushed after the command's output.
 - Code should stay readable for a beginner: short functions, docstrings that explain the *concept*.
+- Sync: anything that writes the save (`save`, `quit`, end of run) should be followed by `sync.push()`.
+  Sync must never crash or block the game: git errors become one warning line (30 s timeout,
+  `GIT_TERMINAL_PROMPT=0`). Tests in `tests/test_sync.py` use a local bare repo as the remote.
 - Commit after each working milestone; keep `python3 -m pytest` green.
 
 ## Status

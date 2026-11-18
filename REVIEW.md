@@ -111,6 +111,7 @@ In this order — each is short enough to read in one sitting and builds on the 
 | **A real `sed`** (s///, d, p, addresses, `-i`, `-n`, `-E`) **and `spec new --from`**, with copy detection in `spec check`. | Writing every spec from scratch was the main tedium; `sed -i` is also how agents make small edits. |
 | **Some entries get a "Go deeper" section** (benchmarks, common mistakes, practice), shown in the Notebook but not in the pop-up. Practice questions vary: recognise the definition, explain why it matters, spot it in your company. | "Know in depth" without turning pop-ups into walls of text. |
 | **The game states its own simplifications** in `notebook/000_what_is_simplified.md`, linked from the first email. | The brief asks to state what is simplified; REVIEW.md is not something a player reads. |
+| **Optional save sync through a private git repo** (`sync.py`, `--sync-setup URL`): pull when the game starts, commit + push on `save`, `quit` and at the end of a run; on a conflict the player chooses and the other copy is backed up. | Lets one player continue the same run on a desktop and a laptop, with no server to run. It uses real git, which the game already teaches. Shell history is not synced, because it changes on every command and would conflict all the time. |
 
 ## 4. Known simplifications (what is not like reality)
 
@@ -203,12 +204,13 @@ variable, and writing an executable script. The game checks the real state of th
 
 ## 6. How the quality bar was checked
 
-- **70 automated tests** (`python3 -m pytest`, ~2.5 s): real-bash behaviour and error messages (including
+- **74 automated tests** (`python3 -m pytest`, ~3 s): real-bash behaviour and error messages (including
   `sed`, stderr redirection, `/dev/null`, exit status), sandboxing, curriculum integrity (complete, ordered,
   every term reachable, every generated question well-formed), metric formulas, spec scoring and copy
   detection, agent/review/merge rules, SAFE-conversion and priced-round share math, the liquidation
   waterfall, loan amortization, acquisition diligence, acquihires, the new-segment moment, buyer questions,
-  every event, tutorial missions, challenges, save/load, and whole runs on every scenario.
+  every event, tutorial missions, challenges, save/load, two-computer save sync (including conflicts),
+  and whole runs on every scenario.
 - **A human-style playtest of two full runs** (see `PLAYTEST.md`): run 1 guided, run 2 at difficulty 2 with
   the profile carried over. 30+ problems found and fixed; the remaining open ones are listed there.
 - **Simulated players** on every scenario and difficulty (6 seeds each):

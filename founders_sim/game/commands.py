@@ -907,8 +907,9 @@ GAME_MAN = {
     "answer": ("answer - answer a shell challenge", "answer <id> <answer>", "Example: answer c1 7"),
     "help": ("help - list all commands", "help [command]", "Lists game commands by group and the real shell commands available. `help <command>` is the same as `man <command>`."),
     "dash": ("dash - full-screen dashboard", "dash", "Live company dashboard. Press q to return to the shell."),
-    "save": ("save - save the game", "save", "Writes the run to ~/.founders_sim/save.json on your real disk. The game also autosaves every week."),
-    "quit": ("quit - save and leave", "quit   (also: exit, Ctrl+D)", "Saves and exits. Continue later by starting the game again."),
+    "save": ("save - save the game", "save", "Writes the run to ~/.founders_sim/save.json on your real disk. The game also autosaves every week. "
+             "If sync is set up (README: 'Playing on two computers'), it is also pushed to your other computer."),
+    "quit": ("quit - save and leave", "quit   (also: exit, Ctrl+D)", "Saves and exits (and pushes the save if sync is set up). Continue later by starting the game again."),
 }
 
 

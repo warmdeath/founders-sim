@@ -264,6 +264,55 @@ Show your learner profile (curriculum progress across all runs).
 Your profile, save file and command history live in `~/.founders_sim/` on your real disk — the only real
 files the game writes.
 
+## Playing on two computers (desktop and laptop)
+
+Your save and your learner profile live in `~/.founders_sim/`. The game can keep that folder in sync
+through a **private** GitHub repository: it runs `git pull` when it starts and `git commit` + `git push`
+when you `save`, `quit`, or finish a run. Set it up once per computer:
+
+**1. Create an empty private repository** on github.com (New repository → name it e.g.
+`founders-sim-saves` → **Private** → don't add a README). Copy its HTTPS address, e.g.
+`https://github.com/yourname/founders-sim-saves.git`.
+
+**2. Let git log in to GitHub from Ubuntu** (once per computer). The simplest way is the GitHub CLI:
+
+```bash
+sudo apt install -y gh
+```
+
+```bash
+gh auth login
+```
+
+Choose GitHub.com → HTTPS → "Login with a web browser", and follow the code it shows you.
+
+```bash
+gh auth setup-git
+```
+
+This tells `git` to use that login, so pushing never asks for a password.
+(On Ubuntu 22.04 `apt` may not have `gh`; see https://github.com/cli/cli#installation.)
+
+**3. Connect the save folder** - on the computer whose save you want to keep first:
+
+```bash
+python3 -m founders_sim --sync-setup https://github.com/yourname/founders-sim-saves.git
+```
+
+Then run the same command on the other computer. It downloads the save; if that computer already had
+one, it is moved to `~/.founders_sim/backup-<date>/`, not deleted.
+
+From then on it is automatic. Good to know:
+
+- **Leave with `quit`** (or `save`) so the save is pushed. The weekly autosave stays on the computer
+  until then. If you just close the window, the save is pushed the next time you quit on that computer.
+- **Played on both without syncing?** At start the game asks which save to keep; the other copy goes
+  to `~/.founders_sim/conflict-backup/`.
+- **No internet?** You play with the local save and it is pushed later.
+- Your shell history (↑ and Ctrl+R) stays separate on each computer.
+- To switch sync off for one session: `FOUNDERS_SIM_SYNC=off python3 -m founders_sim`.
+- Keep the repository **private**: it contains your save and learner profile.
+
 ## Running the tests
 
 ```bash
