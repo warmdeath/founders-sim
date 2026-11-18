@@ -15,6 +15,7 @@ from rich.panel import Panel
 from rich.text import Text
 
 from . import save as savefile
+from . import sync
 from .vfs import VFS, COMPANY
 from .ui.io import IO, TerminalIO
 from .shell.interpreter import Shell
@@ -54,6 +55,7 @@ def build_shell(s: Session, state: dict | None = None) -> Shell:
     def cmd_save(ctx):
         savefile.save(s)
         ctx.line(f"Saved to {savefile.save_path()}")
+        sync.push(s.io, f"week {s.game.week} of {s.game.company}")
 
     def cmd_quit(ctx):
         sh.exit_requested = True
@@ -191,6 +193,7 @@ def play(s: Session) -> str:
         if s.game.ended:
             debrief.finish_run(s)
             savefile.delete_save()
+            sync.push(s.io, f"finished run {s.game.run_number} ({s.game.ended})")
             return "ended"
         if sh.exit_requested:
             break
@@ -198,6 +201,7 @@ def play(s: Session) -> str:
             savefile.save(s)               # autosave every week
     savefile.save(s)
     s.io.print(f"[dim]Game saved. Run `python3 -m founders_sim` to continue.[/dim]")
+    sync.push(s.io, f"quit in week {s.game.week} of {s.game.company}")
     return "quit"
 
 
@@ -217,8 +221,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, help="random seed (for reproducible runs)")
     parser.add_argument("--profile", action="store_true", help="show your learner profile and exit")
     parser.add_argument("--reset-profile", action="store_true", help="forget everything you've learned (asks first)")
+    parser.add_argument("--sync-setup", metavar="REPO_URL",
+                        help="sync your save between computers through a private git repo (see README)")
     args = parser.parse_args(argv)
     io = TerminalIO()
+    if args.sync_setup:
+        return sync.setup(io, args.sync_setup)
+    sync.pull(io)                         # get the save from your other computer before loading anything
     profile = Profile.load()
     if args.reset_profile:
         if io.choose("Really delete your learner profile and saved run?", ["No", "Yes, delete"]) == 1:
